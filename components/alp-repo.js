@@ -117,6 +117,7 @@ export function defineRepoComponent() {
             class="input input-xs flex-1" placeholder="owner/repo">
           <input x-model="token" @blur="saveConfig()" type="password"
             class="input input-xs w-24" placeholder="token">
+          ${alp.fill('codeModal', 'repo')}
         </div>
       </div>
     `,

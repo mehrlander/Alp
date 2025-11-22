@@ -29,6 +29,8 @@ export function defineConsoleComponent() {
           <div x-show="!logs.length" class="text-base-content/50 italic">No logs yet</div>
         </div>
         <div class="flex justify-between items-center px-2 py-1 bg-base-300 text-xs">
+          <div></div>
+          ${alp.fill('codeModal', 'console')}
         </div>
       </div>
     `,

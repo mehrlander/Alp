@@ -27,5 +27,8 @@ export const fills = {
       <template x-for="s in stores">
         <option :value="s.key" x-text="s.key"></option>
       </template>
-    </select>`
+    </select>`,
+
+  // Code modal button - shows component source
+  codeModal: (name) => `<alp-modal src="./components/alp-${name}.js" title="alp-${name}.js" label="</>"></alp-modal>`
 };

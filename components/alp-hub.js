@@ -26,6 +26,7 @@ export function defineHubComponent() {
               </button>
             </template>
           </div>
+          ${alp.fill('codeModal', 'hub')}
         </div>
       </div>
     `,

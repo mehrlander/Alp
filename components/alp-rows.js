@@ -4,14 +4,21 @@ import { alp } from '../core/alp-core.js';
 export function defineRowsComponent() {
   alp.define("rows",
     x => `
-      <div class="flex justify-between items-center mb-2">
-        <div class="flex items-center gap-2">
-          <div class="text-sm font-semibold">rows</div>
-          <button @click="addRow()" class="btn btn-xs btn-ghost">+ add</button>
+      <div class="bg-base-200 border border-base-300 rounded-lg overflow-hidden">
+        <div class="flex justify-between items-center px-2 py-1 bg-base-300">
+          <span class="text-xs font-semibold">Rows</span>
+          <div class="flex gap-1 items-center">
+            <button @click="addRow()" class="btn btn-xs btn-ghost">+ add</button>
+          </div>
         </div>
-        ${alp.fill('pathInput')}
+        <div class="p-2">
+          <div name="rows-table"></div>
+        </div>
+        <div class="flex justify-between items-center px-2 py-1 bg-base-300 text-xs gap-2">
+          ${alp.fill('pathInput')}
+          ${alp.fill('codeModal', 'rows')}
+        </div>
       </div>
-      <div name="rows-table"></div>
     `,
     {
       tt: null,
