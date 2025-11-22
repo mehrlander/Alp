@@ -18,8 +18,10 @@ From the current implementation, these patterns are universal:
 - State registration system
 - Component registry
 - CRUD operations (load/loadRecord/saveRecord/deleteRecord)
-- Installer system for lazy-loading libraries
-- Standard UI elements library
+
+**Utils** (expandable helpers):
+- Fills: Reusable UI template snippets
+- Installers: Lazy-loading for heavy libraries
 
 **Base Component Class**:
 - `Alp` HTMLElement extension
@@ -52,15 +54,30 @@ Each component adds:
 alp/
 ├── core/
 │   ├── alp-core.js           # Core system (db, define, base class)
-│   ├── alp-base.js           # Base component patterns/mixins
-│   └── alp-std.js            # Standard UI elements
+│   └── alp-base.js           # Base component patterns/mixins
 ├── components/
 │   ├── alp-text.js           # Text component
 │   ├── alp-rows.js           # Table component
 │   └── alp-inspector.js      # Inspector component
 ├── utils/
+│   ├── fills.js              # Reusable UI template fills
 │   └── installers.js         # Library installers
 └── index.html                # Demo page
+```
+
+### Utils Concept
+
+Both `fills` and `installers` follow a similar expandable pattern - they provide reusable pieces that components can pull in:
+
+- **fills**: Template snippets that "fill in" common UI patterns
+- **installers**: Lazy-loaded library initializers
+
+Accessed via unified API:
+```javascript
+alp.fill('pathInput')           // Returns HTML string
+alp.fill('toolbar', items)      // Can accept arguments
+alp.install('jse', opts)        // Returns Promise<instance>
+alp.install('tt', opts)         // Returns Promise<instance>
 ```
 
 ## Phase 1: Extract Core System
@@ -77,7 +94,9 @@ export const alp = {
   saveRecord(),
   deleteRecord(),
   safeStore(),
-  define()         // Component factory
+  define(),        // Component factory
+  fill(name, ...args),    // Get UI template fill
+  install(name, opts)     // Lazy-load library
 }
 ```
 
@@ -129,32 +148,40 @@ export const baseComponentMixin = {
 - Navigation pattern with validation
 - Template methods for customization
 
-### File: `core/alp-std.js`
+### File: `utils/fills.js`
 
 **Exports**:
 ```javascript
-export const std = {
-  pathInput: () => `...`,
+export const fills = {
+  pathInput: () => `<input x-model="path" @blur="nav()" @keydown.enter="$el.blur()"
+    class="input input-xs input-ghost text-xs text-right w-48" placeholder="path">`,
+
   // Future additions:
-  // deleteButton: () => `...`,
-  // saveButton: () => `...`,
-  // toolbar: (items) => `...`
+  deleteButton: () => `<button @click="del()" class="btn btn-xs btn-error">Delete</button>`,
+  saveIndicator: () => `<span x-show="saving" class="loading loading-spinner loading-xs"></span>`,
+  toolbar: (items) => `<div class="flex gap-1">${items.map(i => fills[i]?.() || '').join('')}</div>`
 }
 ```
 
 **Responsibilities**:
-- Reusable UI element templates
-- Consistent styling
-- Common interaction patterns
+- Reusable UI template snippets
+- Consistent styling across components
+- Composable via toolbar pattern
 
 ### File: `utils/installers.js`
 
 **Exports**:
 ```javascript
-export const installer = {
-  jse: opts => ...,
-  tt: opts => ...,
-  // Future: codemirror, ace, etc.
+export const installers = {
+  jse: opts => import('https://unpkg.com/vanilla-jsoneditor/standalone.js')
+    .then(({createJSONEditor}) => createJSONEditor(opts)),
+
+  tt: opts => new Promise(resolve => {
+    const table = new Tabulator(opts.target, opts.props);
+    table.on("tableBuilt", () => resolve(table));
+  }),
+
+  // Future: codemirror, ace, monaco, etc.
 }
 ```
 
@@ -163,6 +190,26 @@ export const installer = {
 - Promise-based initialization
 - Consistent API across installers
 
+### Integration in `alp-core.js`
+
+```javascript
+import { fills } from '../utils/fills.js';
+import { installers } from '../utils/installers.js';
+
+// In alp object:
+fill(name, ...args) {
+  const fn = fills[name];
+  if (!fn) throw new Error(`Unknown fill: ${name}`);
+  return fn(...args);
+},
+
+install(name, opts) {
+  const fn = installers[name];
+  if (!fn) throw new Error(`Unknown installer: ${name}`);
+  return fn(opts);
+}
+```
+
 ## Phase 2: Extract Components
 
 ### File: `components/alp-text.js`
@@ -170,11 +217,18 @@ export const installer = {
 **Structure**:
 ```javascript
 import { alp } from '../core/alp-core.js';
-import { std } from '../core/alp-std.js';
 
 export function defineTextComponent() {
   alp.define("text",
-    x => `...template...`,
+    x => `
+      <div class="flex justify-between items-center mb-2">
+        <div class="text-sm font-semibold">text</div>
+        ${alp.fill('pathInput')}
+      </div>
+      <textarea x-model="text" @blur="save({text})"
+        class="textarea textarea-bordered w-full h-24"
+        placeholder="text..."></textarea>
+    `,
     {
       text: '',
       dataSchema: '{ text: string }',
@@ -206,12 +260,16 @@ export function defineTextComponent() {
 **Structure**:
 ```javascript
 import { alp } from '../core/alp-core.js';
-import { std } from '../core/alp-std.js';
-import { installer } from '../utils/installers.js';
 
 export function defineRowsComponent() {
   alp.define("rows",
-    x => `...template...`,
+    x => `
+      <div class="flex justify-between items-center mb-3">
+        <button @click="addRow()" class="btn btn-primary btn-sm">Add Row</button>
+        ${alp.fill('pathInput')}
+      </div>
+      <div name="rows-table"></div>
+    `,
     {
       tt: null,
       dataSchema: '{ rows: Array }',
@@ -224,9 +282,23 @@ export function defineRowsComponent() {
         await this.loadTable();
       },
 
-      async loadTable() { ... },
-      savedCallback(data) { ... },
-      addRow() { ... },
+      async loadTable() {
+        const loaded = await this.load();
+        const data = loaded?.rows || [];
+        // ... column detection logic
+        if (this.tt) {
+          this.tt.setColumns(cols);
+          this.tt.setData(data);
+        } else {
+          this.tt = await alp.install('tt', {
+            target: this.find('[name="rows-table"]'),
+            props: { data, layout: "fitColumns", columns: cols }
+          });
+          // ... event bindings
+        }
+      },
+      savedCallback(data) { this.loadTable(); },
+      addRow() { this.tt?.addRow({}); },
 
       nav() {
         this.navigate();
@@ -241,7 +313,6 @@ export function defineRowsComponent() {
 **Structure**:
 ```javascript
 import { alp } from '../core/alp-core.js';
-import { installer } from '../utils/installers.js';
 
 export function defineInspectorComponent() {
   alp.define("inspector",
@@ -273,7 +344,7 @@ export function defineInspectorComponent() {
 <head>
   <meta charset="UTF-8">
   <title>Alpine IndexedDB Components</title>
-  <!-- CDN links -->
+  <!-- CDN links for Tailwind, DaisyUI, Dexie, Tabulator, Phosphor -->
 </head>
 <body>
   <div class="max-w mx-auto p-2">
@@ -284,10 +355,10 @@ export function defineInspectorComponent() {
   <alp-inspector class="fixed bottom-4 right-4"></alp-inspector>
 
   <script type="module">
+    // Core system (includes fills and installers)
     import { alp } from './core/alp-core.js';
-    import './core/alp-std.js';
-    import './utils/installers.js';
 
+    // Components
     import { defineTextComponent } from './components/alp-text.js';
     import { defineRowsComponent } from './components/alp-rows.js';
     import { defineInspectorComponent } from './components/alp-inspector.js';
@@ -305,6 +376,8 @@ export function defineInspectorComponent() {
 </body>
 </html>
 ```
+
+Note: `alp-core.js` imports and exposes fills and installers internally, so components only need the single `alp` import.
 
 ## Benefits of This Refactoring
 
@@ -340,15 +413,13 @@ After refactoring, creating a new component would follow this pattern:
 ```javascript
 // components/alp-json.js
 import { alp } from '../core/alp-core.js';
-import { std } from '../core/alp-std.js';
-import { installer } from '../utils/installers.js';
 
 export function defineJsonComponent() {
   alp.define("json",
     x => `
       <div class="flex justify-between items-center mb-2">
         <div class="text-sm font-semibold">JSON Editor</div>
-        ${std.pathInput()}
+        ${alp.fill('pathInput')}
       </div>
       <div name="json-editor" class="h-64"></div>
     `,
@@ -362,7 +433,7 @@ export function defineJsonComponent() {
 
       async onNavigate(data) {
         if (!this.editor) {
-          this.editor = await installer.jse({
+          this.editor = await alp.install('jse', {
             target: this.find('[name="json-editor"]'),
             props: {
               mode: "tree",
@@ -382,6 +453,14 @@ export function defineJsonComponent() {
   );
 }
 ```
+
+### Key Pattern
+
+Components only need to import `alp` - everything else flows through it:
+- `alp.fill(name, ...args)` for UI template snippets
+- `alp.install(name, opts)` for lazy-loaded libraries
+- `alp.define()` for component registration
+- `this.save()`, `this.load()`, `this.del()` for data operations
 
 ## Migration Path
 
