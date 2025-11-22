@@ -9,5 +9,26 @@ export const fills = {
 
   saveIndicator: () => `<span x-show="saving" class="loading loading-spinner loading-xs"></span>`,
 
-  toolbar: (items) => `<div class="flex gap-1">${items.map(i => fills[i]?.() || '').join('')}</div>`
+  toolbar: (items) => `<div class="flex gap-1">${items.map(i => fills[i]?.() || '').join('')}</div>`,
+
+  // Pages navigation buttons for IndexedDB records
+  pagesButtons: () => `
+    <div class="flex gap-0.5 overflow-x-auto max-w-48">
+      <template x-for="it in pages">
+        <button class="btn btn-xs" @click="goPage(it.key)" :class="page===it.key?'btn-primary':'btn-ghost'">
+          <span x-text="it.sig" class="truncate max-w-16"></span>
+        </button>
+      </template>
+    </div>`,
+
+  // Store selector dropdown
+  storeSelector: () => `
+    <select class="select select-xs w-auto min-w-0" @change="goStore($event.target.value)" x-model="store">
+      <template x-for="s in stores">
+        <option :value="s.key" x-text="s.key"></option>
+      </template>
+    </select>`,
+
+  // Code modal button - shows component source via global modal
+  codeModal: (name) => `<button @click="$store.alp.modal.openWith('./components/alp-${name}.js', 'alp-${name}.js')" class="btn btn-xs btn-ghost opacity-50 hover:opacity-100">&lt;/&gt;</button>`
 };

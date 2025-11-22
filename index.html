@@ -12,11 +12,13 @@
   <div class="max-w mx-auto p-2">
     <alp-console class="m-2"></alp-console>
     <alp-repo class="m-2"></alp-repo>
+    <alp-data class="m-2"></alp-data>
     <alp-text class="m-2"></alp-text>
     <alp-rows class="m-2"></alp-rows>
   </div>
 
-  <alp-inspector class="fixed bottom-32 right-4"></alp-inspector>
+  <!-- Global modal for code viewing -->
+  <alp-modal></alp-modal>
 
   <script type="module">
     // Core system (includes fills and installers)
@@ -27,7 +29,8 @@
     import { defineRepoComponent } from './components/alp-repo.js';
     import { defineTextComponent } from './components/alp-text.js';
     import { defineRowsComponent } from './components/alp-rows.js';
-    import { defineInspectorComponent } from './components/alp-inspector.js';
+    import { defineDataComponent } from './components/alp-data.js';
+    import { defineModalComponent } from './components/alp-modal.js';
 
     // Make alp available globally for Alpine templates
     window.alp = alp;
@@ -37,7 +40,8 @@
     defineRepoComponent();
     defineTextComponent();
     defineRowsComponent();
-    defineInspectorComponent();
+    defineDataComponent();
+    defineModalComponent();
   </script>
 
   <script defer src="https://unpkg.com/alpinejs"></script>

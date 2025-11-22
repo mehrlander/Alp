@@ -6,7 +6,10 @@ export function defineConsoleComponent() {
     x => `
       <div class="bg-base-200 border border-base-300 rounded-lg overflow-hidden">
         <div class="flex justify-between items-center px-2 py-1 bg-base-300">
-          <span class="text-xs font-semibold">Console</span>
+          <div class="flex items-center gap-1">
+            <span class="text-xs font-semibold">Console</span>
+            ${alp.fill('codeModal', 'console')}
+          </div>
           <div class="flex gap-1 items-center">
             <span x-show="copyMsg" x-text="copyMsg" class="text-[10px] text-success"></span>
             <button @click="copyAll()" class="btn btn-xs btn-ghost">copy</button>
@@ -27,6 +30,8 @@ export function defineConsoleComponent() {
             </div>
           </template>
           <div x-show="!logs.length" class="text-base-content/50 italic">No logs yet</div>
+        </div>
+        <div class="flex justify-between items-center px-2 py-1 bg-base-300 text-xs">
         </div>
       </div>
     `,

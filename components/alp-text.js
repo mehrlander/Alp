@@ -4,15 +4,25 @@ import { alp } from '../core/alp-core.js';
 export function defineTextComponent() {
   alp.define("text",
     x => `
-      <div class="flex justify-between items-center mb-2">
-        <div class="text-sm font-semibold">text</div>
-        ${alp.fill('pathInput')}
+      <div class="bg-base-200 border border-base-300 rounded-lg overflow-hidden">
+        <div class="flex justify-between items-center px-2 py-1 bg-base-300">
+          <div class="flex items-center gap-1">
+            <span class="text-xs font-semibold">Text</span>
+            ${alp.fill('codeModal', 'text')}
+          </div>
+          <div class="flex gap-1 items-center">
+          </div>
+        </div>
+        <textarea
+          x-model="text"
+          @blur="save({text})"
+          class="textarea w-full h-32 text-sm rounded-none border-0 focus:outline-none"
+          placeholder="text..."></textarea>
+        <div class="flex justify-between items-center px-2 py-1 bg-base-300 text-xs gap-2">
+          <div class="flex-1"></div>
+          ${alp.fill('pathInput')}
+        </div>
       </div>
-      <textarea
-        x-model="text"
-        @blur="save({text})"
-        class="textarea textarea-bordered w-full h-24"
-        placeholder="text..."></textarea>
     `,
     {
       text: '',
