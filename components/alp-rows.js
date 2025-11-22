@@ -7,7 +7,7 @@ export function defineRowsComponent() {
       <div class="flex justify-between items-center mb-2">
         <div class="flex items-center gap-2">
           <div class="text-sm font-semibold">rows</div>
-          <button @click="addRow()" class="btn btn-xs btn-primary">+ add</button>
+          <button @click="addRow()" class="btn btn-xs btn-ghost">+ add</button>
         </div>
         ${alp.fill('pathInput')}
       </div>
