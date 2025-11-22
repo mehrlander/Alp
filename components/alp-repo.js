@@ -13,14 +13,6 @@ export function defineRepoComponent() {
         </div>
 
         <div class="p-2 space-y-2">
-          <!-- Config -->
-          <div class="flex gap-2">
-            <input x-model="repo" @blur="saveConfig()" @keydown.enter="refresh()"
-              class="input input-xs flex-1" placeholder="owner/repo">
-            <input x-model="token" @blur="saveConfig()" type="password"
-              class="input input-xs w-24" placeholder="token">
-          </div>
-
           <!-- Tabs + current file -->
           <div class="flex items-center gap-2">
             <div class="tabs tabs-xs tabs-boxed">
@@ -119,6 +111,12 @@ export function defineRepoComponent() {
               </div>
             </template>
           </div>
+        </div>
+        <div class="flex justify-between items-center px-2 py-1 bg-base-300 text-xs gap-2">
+          <input x-model="repo" @blur="saveConfig()" @keydown.enter="refresh()"
+            class="input input-xs flex-1" placeholder="owner/repo">
+          <input x-model="token" @blur="saveConfig()" type="password"
+            class="input input-xs w-24" placeholder="token">
         </div>
       </div>
     `,

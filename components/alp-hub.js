@@ -8,22 +8,25 @@ export function defineHubComponent() {
         <div class="flex justify-between items-center px-2 py-1 bg-base-300">
           <span class="text-xs font-semibold">Hub</span>
           <div class="flex gap-1 items-center">
-            <select class="select select-xs w-auto min-w-0" @change="goStore($event.target.value)" x-model="store">
-              <template x-for="s in stores">
-                <option :value="s.key" x-text="s.key"></option>
-              </template>
-            </select>
-            <div class="flex gap-0.5 overflow-x-auto max-w-48">
-              <template x-for="it in pages">
-                <button class="btn btn-xs" @click="goPage(it.key)" :class="page===it.key?'btn-primary':'btn-ghost'">
-                  <span x-text="it.sig" class="truncate max-w-16"></span>
-                </button>
-              </template>
-            </div>
+            <button @click="refresh()" class="btn btn-xs btn-ghost">↻</button>
             <button @click="clear()" class="btn btn-xs btn-ghost text-error">✕</button>
           </div>
         </div>
         <div name="jse" class="h-64 overflow-hidden"></div>
+        <div class="flex justify-between items-center px-2 py-1 bg-base-300 text-xs gap-2">
+          <select class="select select-xs w-auto min-w-0" @change="goStore($event.target.value)" x-model="store">
+            <template x-for="s in stores">
+              <option :value="s.key" x-text="s.key"></option>
+            </template>
+          </select>
+          <div class="flex gap-0.5 overflow-x-auto flex-1">
+            <template x-for="it in pages">
+              <button class="btn btn-xs" @click="goPage(it.key)" :class="page===it.key?'btn-primary':'btn-ghost'">
+                <span x-text="it.sig" class="truncate max-w-24"></span>
+              </button>
+            </template>
+          </div>
+        </div>
       </div>
     `,
     {
