@@ -84,7 +84,14 @@ export function defineRepoComponent() {
                 <div><span class="font-semibold">Description:</span> <span x-text="info.description || 'None'"></span></div>
                 <div><span class="font-semibold">Stars:</span> <span x-text="info.stars"></span></div>
                 <div><span class="font-semibold">Forks:</span> <span x-text="info.forks"></span></div>
-                <div><span class="font-semibold">Default branch:</span> <span x-text="info.branch"></span></div>
+                <div class="flex items-center gap-2">
+                  <span class="font-semibold">Branch:</span>
+                  <select x-model="selectedBranch" @change="switchBranch()" class="select select-xs flex-1">
+                    <template x-for="b in branches" :key="b">
+                      <option :value="b" x-text="b"></option>
+                    </template>
+                  </select>
+                </div>
                 <div><span class="font-semibold">Updated:</span> <span x-text="formatDate(info.updated)"></span></div>
               </div>
             </template>
@@ -101,6 +108,8 @@ export function defineRepoComponent() {
       files: [],
       commits: [],
       info: {},
+      branches: [],
+      selectedBranch: '',
       currentFile: null,
       fileContent: '',
 
@@ -125,8 +134,10 @@ export function defineRepoComponent() {
         this.fileContent = '';
 
         try {
+          await this.fetchInfo();
+          await this.fetchBranches();
+          this.selectedBranch = this.info.branch;
           await Promise.all([
-            this.fetchInfo(),
             this.fetchFiles(),
             this.fetchCommits()
           ]);
@@ -135,6 +146,23 @@ export function defineRepoComponent() {
           console.error('Repo fetch error:', e);
         }
 
+        this.loading = false;
+      },
+
+      async switchBranch() {
+        this.loading = true;
+        this.error = '';
+        this.currentFile = null;
+        this.fileContent = '';
+        try {
+          await Promise.all([
+            this.fetchFiles(),
+            this.fetchCommits()
+          ]);
+        } catch (e) {
+          this.error = e.message;
+          console.error('Branch switch error:', e);
+        }
         this.loading = false;
       },
 
@@ -151,7 +179,8 @@ export function defineRepoComponent() {
         this.loading = true;
         this.error = '';
         try {
-          this.fileContent = await this.ghFetch('/repos/' + this.repo + '/contents/' + path, true);
+          const branch = this.selectedBranch || this.info.branch || 'main';
+          this.fileContent = await this.ghFetch('/repos/' + this.repo + '/contents/' + path + '?ref=' + branch, true);
           this.currentFile = path;
         } catch (e) {
           this.error = 'Failed to load file: ' + e.message;
@@ -172,8 +201,14 @@ export function defineRepoComponent() {
         };
       },
 
+      async fetchBranches() {
+        const data = await this.ghFetch('/repos/' + this.repo + '/branches?per_page=100');
+        this.branches = data.map(b => b.name);
+      },
+
       async fetchFiles() {
-        const data = await this.ghFetch('/repos/' + this.repo + '/git/trees/' + (this.info.branch || 'main') + '?recursive=1');
+        const branch = this.selectedBranch || this.info.branch || 'main';
+        const data = await this.ghFetch('/repos/' + this.repo + '/git/trees/' + branch + '?recursive=1');
         this.files = (data.tree || []).slice(0, 100).map(f => ({
           path: f.path,
           type: f.type === 'tree' ? 'dir' : 'file',
@@ -182,7 +217,8 @@ export function defineRepoComponent() {
       },
 
       async fetchCommits() {
-        const data = await this.ghFetch('/repos/' + this.repo + '/commits?per_page=20');
+        const branch = this.selectedBranch || this.info.branch || 'main';
+        const data = await this.ghFetch('/repos/' + this.repo + '/commits?sha=' + branch + '&per_page=20');
         this.commits = data.map(c => ({
           sha: c.sha,
           message: c.commit.message.split('\n')[0],
