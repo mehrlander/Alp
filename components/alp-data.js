@@ -1,14 +1,14 @@
-// Hub component - IndexedDB viewer with JSE, standard container layout
+// Data component - IndexedDB viewer with JSE, standard container layout
 import { alp } from '../core/alp-core.js';
 
-export function defineHubComponent() {
-  alp.define("hub",
+export function defineDataComponent() {
+  alp.define("data",
     x => `
       <div class="bg-base-200 border border-base-300 rounded-lg overflow-hidden">
         <div class="flex justify-between items-center px-2 py-1 bg-base-300">
           <div class="flex items-center gap-1">
-            <span class="text-xs font-semibold">Hub</span>
-            ${alp.fill('codeModal', 'hub')}
+            <span class="text-xs font-semibold">Data</span>
+            ${alp.fill('codeModal', 'data')}
           </div>
           <div class="flex gap-1 items-center">
             <button @click="refresh()" class="btn btn-xs btn-ghost">↻</button>
