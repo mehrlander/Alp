@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alpine IndexedDB Components</title>
+  <script src="https://cdn.jsdelivr.net/combine/npm/@tailwindcss/browser@4,npm/@phosphor-icons/web,npm/dexie@4,npm/tabulator-tables"></script>
+  <link href="https://cdn.jsdelivr.net/combine/npm/daisyui@5/themes.css,npm/daisyui@5,npm/tabulator-tables/dist/css/tabulator_simple.min.css" rel="stylesheet" />
+</head>
+<body class="min-h-dvh">
+
+  <div class="max-w mx-auto p-2">
+    <alp-text class="m-2"></alp-text>
+    <alp-rows class="m-2"></alp-rows>
+  </div>
+
+  <alp-inspector class="fixed bottom-4 right-4"></alp-inspector>
+
+  <script type="module">
+    // Core system (includes fills and installers)
+    import { alp } from './core/alp-core.js';
+
+    // Components
+    import { defineTextComponent } from './components/alp-text.js';
+    import { defineRowsComponent } from './components/alp-rows.js';
+    import { defineInspectorComponent } from './components/alp-inspector.js';
+
+    // Make alp available globally for Alpine templates
+    window.alp = alp;
+
+    // Register components
+    defineTextComponent();
+    defineRowsComponent();
+    defineInspectorComponent();
+  </script>
+
+  <script defer src="https://unpkg.com/alpinejs"></script>
+
+</body>
+</html>
