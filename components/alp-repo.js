@@ -6,7 +6,10 @@ export function defineRepoComponent() {
     x => `
       <div class="bg-base-200 border border-base-300 rounded-lg overflow-hidden">
         <div class="flex justify-between items-center px-2 py-1 bg-base-300">
-          <span class="text-xs font-semibold">Repo</span>
+          <div class="flex items-center gap-1">
+            <span class="text-xs font-semibold">Repo</span>
+            ${alp.fill('codeModal', 'repo')}
+          </div>
           <div class="flex gap-1">
             <button @click="refresh()" class="btn btn-xs btn-ghost" :disabled="loading">↻</button>
           </div>
@@ -117,7 +120,6 @@ export function defineRepoComponent() {
             class="input input-xs flex-1" placeholder="owner/repo">
           <input x-model="token" @blur="saveConfig()" type="password"
             class="input input-xs w-24" placeholder="token">
-          ${alp.fill('codeModal', 'repo')}
         </div>
       </div>
     `,

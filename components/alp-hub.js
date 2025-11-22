@@ -6,7 +6,10 @@ export function defineHubComponent() {
     x => `
       <div class="bg-base-200 border border-base-300 rounded-lg overflow-hidden">
         <div class="flex justify-between items-center px-2 py-1 bg-base-300">
-          <span class="text-xs font-semibold">Hub</span>
+          <div class="flex items-center gap-1">
+            <span class="text-xs font-semibold">Hub</span>
+            ${alp.fill('codeModal', 'hub')}
+          </div>
           <div class="flex gap-1 items-center">
             <button @click="refresh()" class="btn btn-xs btn-ghost">↻</button>
             <button @click="clear()" class="btn btn-xs btn-ghost text-error">✕</button>
@@ -26,7 +29,6 @@ export function defineHubComponent() {
               </button>
             </template>
           </div>
-          ${alp.fill('codeModal', 'hub')}
         </div>
       </div>
     `,

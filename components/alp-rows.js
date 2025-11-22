@@ -6,14 +6,16 @@ export function defineRowsComponent() {
     x => `
       <div class="bg-base-200 border border-base-300 rounded-lg overflow-hidden">
         <div class="flex justify-between items-center px-2 py-1 bg-base-300">
-          <span class="text-xs font-semibold">Rows</span>
+          <div class="flex items-center gap-1">
+            <span class="text-xs font-semibold">Rows</span>
+            ${alp.fill('codeModal', 'rows')}
+          </div>
           <div class="flex gap-1 items-center">
             <button @click="addRow()" class="btn btn-xs btn-ghost">+ add</button>
           </div>
         </div>
         <div name="rows-table"></div>
         <div class="flex justify-between items-center px-2 py-1 bg-base-300 text-xs gap-2">
-          ${alp.fill('codeModal', 'rows')}
           <div class="flex-1"></div>
           ${alp.fill('pathInput')}
         </div>
