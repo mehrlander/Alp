@@ -8,6 +8,7 @@ export function defineConsoleComponent() {
         <div class="flex justify-between items-center px-2 py-1 bg-base-300">
           <span class="text-xs font-semibold">Console</span>
           <div class="flex gap-1">
+            <button @click="copyAll()" class="btn btn-xs btn-ghost">copy</button>
             <button @click="refresh()" class="btn btn-xs btn-ghost">↻</button>
             <button @click="clear()" class="btn btn-xs btn-ghost">✕</button>
           </div>
@@ -20,10 +21,7 @@ export function defineConsoleComponent() {
               'text-info': log.type === 'info',
               'text-base-content/70': log.type === 'log'
             }">
-              <div class="flex justify-between items-center mb-1">
-                <span class="text-base-content/50 text-[10px]" x-text="log.time + ' [' + log.type + ']'"></span>
-                <button @click="copy(log.args)" class="btn btn-xs btn-ghost px-1 h-5 min-h-0">copy</button>
-              </div>
+              <div class="text-base-content/50 text-[10px] mb-1" x-text="log.time + ' [' + log.type + ']'"></div>
               <div class="break-all whitespace-pre-wrap" x-text="log.args"></div>
             </div>
           </template>
@@ -36,7 +34,6 @@ export function defineConsoleComponent() {
 
       nav() {
         this.refresh();
-        // Auto-refresh every second
         setInterval(() => this.refresh(), 1000);
       },
 
@@ -53,10 +50,11 @@ export function defineConsoleComponent() {
         this.logs = [];
       },
 
-      async copy(text) {
+      async copyAll() {
+        const text = this.logs.map(l => `[${l.time}] [${l.type}] ${l.args}`).join('\n');
         try {
           await navigator.clipboard.writeText(text);
-          console.log('Copied to clipboard');
+          console.log('Copied all logs');
         } catch (e) {
           console.error('Copy failed:', e.message);
         }
