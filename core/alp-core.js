@@ -54,13 +54,14 @@ class Alp extends HTMLElement {
 }
 
 // Data operations
-const load = async () =>
-  (await db.alp.toArray())
-    .reduce((m, { name, data }) => (
-      ([s, ...p] = name.split('.')),
-      (m[s] ||= []).push({ key: name, sig: p.join('.'), data }),
-      m
-    ), {});
+const load = async () => {
+  const records = await db.alp.toArray();
+  return records.reduce((m, { name, data }) => {
+    const [store, ...rest] = name.split('.');
+    (m[store] ||= []).push({ key: name, sig: rest.join('.'), data });
+    return m;
+  }, {});
+};
 
 const loadRecord = async name => (await db.alp.get(name))?.data;
 

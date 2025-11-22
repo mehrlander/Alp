@@ -12,16 +12,19 @@ export function defineConsoleComponent() {
             <button @click="clear()" class="btn btn-xs btn-ghost">✕</button>
           </div>
         </div>
-        <div name="logs" class="h-48 overflow-y-auto p-2 font-mono text-xs space-y-1">
+        <div name="logs" class="h-48 overflow-y-auto p-2 font-mono text-xs space-y-2">
           <template x-for="(log, i) in logs" :key="i">
-            <div class="flex gap-2" :class="{
+            <div class="border-b border-base-300 pb-2" :class="{
               'text-warning': log.type === 'warn',
               'text-error': log.type === 'error',
               'text-info': log.type === 'info',
               'text-base-content/70': log.type === 'log'
             }">
-              <span class="text-base-content/50 shrink-0" x-text="log.time"></span>
-              <span class="break-all whitespace-pre-wrap" x-text="log.args"></span>
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-base-content/50 text-[10px]" x-text="log.time + ' [' + log.type + ']'"></span>
+                <button @click="copy(log.args)" class="btn btn-xs btn-ghost px-1 h-5 min-h-0">copy</button>
+              </div>
+              <div class="break-all whitespace-pre-wrap" x-text="log.args"></div>
             </div>
           </template>
           <div x-show="!logs.length" class="text-base-content/50 italic">No logs yet</div>
@@ -48,6 +51,15 @@ export function defineConsoleComponent() {
       clear() {
         alp.consoleLogs.length = 0;
         this.logs = [];
+      },
+
+      async copy(text) {
+        try {
+          await navigator.clipboard.writeText(text);
+          console.log('Copied to clipboard');
+        } catch (e) {
+          console.error('Copy failed:', e.message);
+        }
       }
     }
   );
