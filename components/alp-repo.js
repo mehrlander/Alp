@@ -26,6 +26,7 @@ export function defineRepoComponent() {
             <div class="tabs tabs-xs tabs-boxed">
               <button class="tab" :class="tab==='files'?'tab-active':''" @click="tab='files'; currentFile=null">Files</button>
               <button class="tab" :class="tab==='commits'?'tab-active':''" @click="tab='commits'; currentFile=null">Commits</button>
+              <button class="tab" :class="tab==='branches'?'tab-active':''" @click="tab='branches'; currentFile=null">Branches</button>
               <button class="tab" :class="tab==='info'?'tab-active':''" @click="tab='info'; currentFile=null">Info</button>
             </div>
             <span x-show="currentFile" class="text-xs text-primary truncate flex-1" x-text="currentFile"></span>
@@ -75,6 +76,28 @@ export function defineRepoComponent() {
             </template>
           </div>
 
+          <!-- Branches Tab -->
+          <div x-show="tab==='branches' && !currentFile && !loading" class="max-h-48 overflow-y-auto space-y-1">
+            <div x-show="!branchDetails.length" class="text-xs text-base-content/50 italic">No branches loaded</div>
+            <template x-for="b in branchDetails" :key="b.name">
+              <div class="text-xs border-b border-base-300 pb-1 cursor-pointer hover:bg-base-300 px-1 -mx-1 rounded"
+                   @click="selectedBranch = b.name; switchBranch()">
+                <div class="flex justify-between items-center">
+                  <div class="flex items-center gap-1">
+                    <span class="font-semibold" :class="b.name === selectedBranch ? 'text-primary' : ''" x-text="b.name"></span>
+                    <span x-show="b.name === info.branch" class="badge badge-xs badge-primary">default</span>
+                    <span x-show="b.protected" class="badge badge-xs badge-warning">protected</span>
+                  </div>
+                  <span class="text-base-content/50" x-text="formatDate(b.updated)"></span>
+                </div>
+                <div class="flex justify-between text-base-content/50">
+                  <span class="font-mono" x-text="b.sha.slice(0,7)"></span>
+                  <span x-text="b.author"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+
           <!-- Info Tab -->
           <div x-show="tab==='info' && !currentFile && !loading" class="text-xs space-y-1">
             <div x-show="!info.name" class="text-base-content/50 italic">No repo info loaded</div>
@@ -109,6 +132,7 @@ export function defineRepoComponent() {
       commits: [],
       info: {},
       branches: [],
+      branchDetails: [],
       selectedBranch: '',
       currentFile: null,
       fileContent: '',
@@ -204,6 +228,32 @@ export function defineRepoComponent() {
       async fetchBranches() {
         const data = await this.ghFetch('/repos/' + this.repo + '/branches?per_page=100');
         this.branches = data.map(b => b.name);
+        this.branchDetails = data.map(b => ({
+          name: b.name,
+          sha: b.commit.sha,
+          protected: b.protected,
+          // Commit details need separate fetch, we'll get them lazily
+          author: '',
+          updated: ''
+        }));
+        // Fetch commit details for each branch (limit to first 10 for performance)
+        await this.fetchBranchCommits();
+      },
+
+      async fetchBranchCommits() {
+        const toFetch = this.branchDetails.slice(0, 15);
+        await Promise.all(toFetch.map(async (b, i) => {
+          try {
+            const commit = await this.ghFetch('/repos/' + this.repo + '/commits/' + b.sha);
+            this.branchDetails[i] = {
+              ...this.branchDetails[i],
+              author: commit.commit.author.name,
+              updated: commit.commit.author.date
+            };
+          } catch (e) {
+            console.warn('Failed to fetch commit for branch', b.name, e);
+          }
+        }));
       },
 
       async fetchFiles() {
