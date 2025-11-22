@@ -25,6 +25,7 @@ export function defineRepoComponent() {
           <div class="flex items-center gap-2">
             <div class="tabs tabs-xs tabs-boxed">
               <button class="tab" :class="tab==='files'?'tab-active':''" @click="tab='files'; currentFile=null">Files</button>
+              <button class="tab" :class="tab==='branches'?'tab-active':''" @click="tab='branches'; currentFile=null">Branches</button>
               <button class="tab" :class="tab==='commits'?'tab-active':''" @click="tab='commits'; currentFile=null">Commits</button>
               <button class="tab" :class="tab==='info'?'tab-active':''" @click="tab='info'; currentFile=null">Info</button>
             </div>
@@ -60,6 +61,35 @@ export function defineRepoComponent() {
             </template>
           </div>
 
+          <!-- Branches Tab -->
+          <div x-show="tab==='branches' && !currentFile && !loading" class="max-h-48 overflow-y-auto">
+            <div x-show="!branches.length" class="text-xs text-base-content/50 italic">No branches loaded</div>
+            <!-- Active branch indicator -->
+            <div x-show="activeBranch" class="flex items-center gap-2 mb-2 p-1 bg-success/10 rounded text-xs">
+              <span class="badge badge-success badge-xs">Active</span>
+              <span x-text="selectedBranch"></span>
+              <button @click="deactivateBranch()" class="btn btn-xs btn-ghost ml-auto">Reset</button>
+            </div>
+            <template x-for="b in branches" :key="b">
+              <div
+                class="flex items-center gap-2 text-xs py-1 px-1 border-b border-base-300 cursor-pointer hover:bg-base-300 rounded"
+                :class="selectedBranch === b ? 'bg-primary/10' : ''"
+                @click="selectBranch(b)">
+                <span x-text="b === info.branch ? '★' : ''" class="text-warning text-[10px] w-3"></span>
+                <span x-text="b" class="flex-1 truncate"></span>
+                <template x-if="selectedBranch === b && (!activeBranch || activeBranch !== branchSuffix(b))">
+                  <button @click.stop="activateBranch()" class="btn btn-xs btn-primary" :disabled="loadingBranch">
+                    <span x-show="loadingBranch" class="loading loading-spinner loading-xs"></span>
+                    <span x-show="!loadingBranch">Activate</span>
+                  </button>
+                </template>
+                <template x-if="activeBranch && activeBranch === branchSuffix(b)">
+                  <span class="badge badge-success badge-xs">Active</span>
+                </template>
+              </div>
+            </template>
+          </div>
+
           <!-- Commits Tab -->
           <div x-show="tab==='commits' && !currentFile && !loading" class="max-h-48 overflow-y-auto space-y-1">
             <div x-show="!commits.length" class="text-xs text-base-content/50 italic">No commits loaded</div>
@@ -84,31 +114,7 @@ export function defineRepoComponent() {
                 <div><span class="font-semibold">Description:</span> <span x-text="info.description || 'None'"></span></div>
                 <div><span class="font-semibold">Stars:</span> <span x-text="info.stars"></span></div>
                 <div><span class="font-semibold">Forks:</span> <span x-text="info.forks"></span></div>
-                <div class="flex items-center gap-2">
-                  <span class="font-semibold">Branch:</span>
-                  <select x-model="selectedBranch" @change="switchBranch()" class="select select-xs flex-1">
-                    <template x-for="b in branches" :key="b">
-                      <option :value="b" x-text="b"></option>
-                    </template>
-                  </select>
-                </div>
-                <div class="flex items-center gap-2 mt-1">
-                  <template x-if="!activeBranch || activeBranch !== branchSuffix(selectedBranch)">
-                    <button @click="activateBranch()" class="btn btn-xs btn-primary" :disabled="loadingBranch || !selectedBranch">
-                      <span x-show="loadingBranch" class="loading loading-spinner loading-xs"></span>
-                      <span x-show="!loadingBranch">Activate Branch</span>
-                    </button>
-                  </template>
-                  <template x-if="activeBranch && activeBranch === branchSuffix(selectedBranch)">
-                    <div class="flex items-center gap-2">
-                      <span class="badge badge-success badge-sm">Active</span>
-                      <button @click="deactivateBranch()" class="btn btn-xs btn-ghost">Reset</button>
-                    </div>
-                  </template>
-                  <span x-show="activeBranch && activeBranch !== branchSuffix(selectedBranch)" class="text-xs text-warning">
-                    (other branch active)
-                  </span>
-                </div>
+                <div><span class="font-semibold">Default Branch:</span> <span x-text="info.branch"></span></div>
                 <div><span class="font-semibold">Updated:</span> <span x-text="formatDate(info.updated)"></span></div>
               </div>
             </template>
@@ -168,6 +174,12 @@ export function defineRepoComponent() {
         }
 
         this.loading = false;
+      },
+
+      async selectBranch(branch) {
+        if (this.selectedBranch === branch) return;
+        this.selectedBranch = branch;
+        await this.switchBranch();
       },
 
       async switchBranch() {

@@ -12,6 +12,7 @@
   <div class="max-w mx-auto p-2">
     <alp-console class="m-2"></alp-console>
     <alp-repo class="m-2"></alp-repo>
+    <alp-allinspect class="m-2"></alp-allinspect>
     <alp-text class="m-2"></alp-text>
     <alp-rows class="m-2"></alp-rows>
   </div>
@@ -25,6 +26,7 @@
     // Components
     import { defineConsoleComponent } from './components/alp-console.js';
     import { defineRepoComponent } from './components/alp-repo.js';
+    import { defineAllInspectComponent } from './components/alp-allinspect.js';
     import { defineTextComponent } from './components/alp-text.js';
     import { defineRowsComponent } from './components/alp-rows.js';
     import { defineInspectorComponent } from './components/alp-inspector.js';
@@ -35,6 +37,7 @@
     // Register components (console first for early capture visibility)
     defineConsoleComponent();
     defineRepoComponent();
+    defineAllInspectComponent();
     defineTextComponent();
     defineRowsComponent();
     defineInspectorComponent();
