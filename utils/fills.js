@@ -29,6 +29,6 @@ export const fills = {
       </template>
     </select>`,
 
-  // Code modal button - shows component source
-  codeModal: (name) => `<alp-modal src="./components/alp-${name}.js" title="alp-${name}.js" label="</>"></alp-modal>`
+  // Code modal button - shows component source via global modal
+  codeModal: (name) => `<button @click="$store.alp.modal.openWith('./components/alp-${name}.js', 'alp-${name}.js')" class="btn btn-xs btn-ghost opacity-50 hover:opacity-100">&lt;/&gt;</button>`
 };

@@ -1,12 +1,10 @@
-// Modal component - button that triggers a modal, can display any content or fetch a file
+// Modal component - global modal for displaying content/files
+// Place once in HTML, trigger via $store.alp.modal.openWith(src, title)
 import { alp } from '../core/alp-core.js';
 
 export function defineModalComponent() {
   alp.define("modal",
     x => `
-      <button @click="open()" class="btn btn-xs btn-ghost" :class="btnClass">
-        <span x-text="label"></span>
-      </button>
       <template x-teleport="body">
         <div x-show="show" x-transition.opacity class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="show=false">
           <div class="bg-base-100 w-full max-w-4xl max-h-[85vh] shadow-xl rounded-lg flex flex-col m-4" @click.stop>
@@ -32,33 +30,29 @@ export function defineModalComponent() {
       content: '',
       src: '',
       title: 'Modal',
-      label: '</>',
-      btnClass: '',
 
-      async nav() {
-        // Read attributes from element
-        const el = this.el?.parentElement;
-        this.src = el?.getAttribute('src') || '';
-        this.title = el?.getAttribute('title') || this.src || 'Modal';
-        this.label = el?.getAttribute('label') || '</>';
-        this.btnClass = el?.getAttribute('btn-class') || '';
+      async nav() {},
+
+      async openWith(src, title) {
+        this.src = src;
+        this.title = title || src;
+        this.content = '';
+        this.error = '';
+        this.show = true;
+        this.loading = true;
+
+        try {
+          const res = await fetch(src);
+          if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+          this.content = await res.text();
+        } catch (e) {
+          this.error = 'Failed to load: ' + e.message;
+        }
+        this.loading = false;
       },
 
-      async open() {
-        this.show = true;
-        this.error = '';
-
-        if (this.src && !this.content) {
-          this.loading = true;
-          try {
-            const res = await fetch(this.src);
-            if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
-            this.content = await res.text();
-          } catch (e) {
-            this.error = 'Failed to load: ' + e.message;
-          }
-          this.loading = false;
-        }
+      close() {
+        this.show = false;
       }
     }
   );
