@@ -7,7 +7,8 @@ export function defineConsoleComponent() {
       <div class="bg-base-200 border border-base-300 rounded-lg overflow-hidden">
         <div class="flex justify-between items-center px-2 py-1 bg-base-300">
           <span class="text-xs font-semibold">Console</span>
-          <div class="flex gap-1">
+          <div class="flex gap-1 items-center">
+            <span x-show="copyMsg" x-text="copyMsg" class="text-[10px] text-success"></span>
             <button @click="copyAll()" class="btn btn-xs btn-ghost">copy</button>
             <button @click="refresh()" class="btn btn-xs btn-ghost">↻</button>
             <button @click="clear()" class="btn btn-xs btn-ghost">✕</button>
@@ -31,6 +32,7 @@ export function defineConsoleComponent() {
     `,
     {
       logs: [],
+      copyMsg: '',
 
       nav() {
         this.refresh();
@@ -54,9 +56,11 @@ export function defineConsoleComponent() {
         const text = this.logs.map(l => `[${l.time}] [${l.type}] ${l.args}`).join('\n');
         try {
           await navigator.clipboard.writeText(text);
-          console.log('Copied all logs');
+          this.copyMsg = 'copied!';
+          setTimeout(() => this.copyMsg = '', 2000);
         } catch (e) {
-          console.error('Copy failed:', e.message);
+          this.copyMsg = 'failed';
+          setTimeout(() => this.copyMsg = '', 2000);
         }
       }
     }
