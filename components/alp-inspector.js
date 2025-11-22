@@ -48,13 +48,17 @@ export function defineInspectorComponent() {
       async refresh() {
         this.storeMap = await alp.load();
         this.stores = Object.keys(this.storeMap).map(k => ({ key: k }));
-        this.goStore(alp.safeStore(this.store, this.storeMap));
+        await this.goStore(alp.safeStore(this.store, this.storeMap));
       },
 
-      goStore(storeName) {
+      async goStore(storeName) {
         this.store = storeName;
         this.pages = this.storeMap[this.store] || [];
-        this.pages.length ? this.goPage(this.pages[0].key) : this.jse?.set({ json: {} });
+        if (this.pages.length) {
+          await this.goPage(this.pages[0].key);
+        } else {
+          this.jse?.set({ json: {} });
+        }
       },
 
       async open() {
@@ -82,7 +86,8 @@ export function defineInspectorComponent() {
       async goPage(k) {
         this.page = k;
         const data = await alp.loadRecord(k);
-        this.jse.set({ json: data || {} });
+        console.log('goPage', k, data);
+        await this.jse.set({ json: data || {} });
       },
 
       async clear() {

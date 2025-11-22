@@ -10,17 +10,21 @@
 <body class="min-h-dvh">
 
   <div class="max-w mx-auto p-2">
+    <alp-console class="m-2"></alp-console>
+    <alp-repo class="m-2"></alp-repo>
     <alp-text class="m-2"></alp-text>
     <alp-rows class="m-2"></alp-rows>
   </div>
 
-  <alp-inspector class="fixed bottom-4 right-4"></alp-inspector>
+  <alp-inspector class="fixed bottom-32 right-4"></alp-inspector>
 
   <script type="module">
     // Core system (includes fills and installers)
     import { alp } from './core/alp-core.js';
 
     // Components
+    import { defineConsoleComponent } from './components/alp-console.js';
+    import { defineRepoComponent } from './components/alp-repo.js';
     import { defineTextComponent } from './components/alp-text.js';
     import { defineRowsComponent } from './components/alp-rows.js';
     import { defineInspectorComponent } from './components/alp-inspector.js';
@@ -28,7 +32,9 @@
     // Make alp available globally for Alpine templates
     window.alp = alp;
 
-    // Register components
+    // Register components (console first for early capture visibility)
+    defineConsoleComponent();
+    defineRepoComponent();
     defineTextComponent();
     defineRowsComponent();
     defineInspectorComponent();
