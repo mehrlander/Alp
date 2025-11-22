@@ -1,8 +1,8 @@
-// AllInspect component - displays live HTML of the page
+// Inspect component - displays live HTML of the page
 import { alp } from '../core/alp-core.js';
 
-export function defineAllInspectComponent() {
-  alp.define("allinspect",
+export function defineInspectComponent() {
+  alp.define("inspect",
     x => `
       <div class="bg-base-200 border border-base-300 rounded-lg overflow-hidden">
         <div class="flex justify-between items-center px-2 py-1 bg-base-300">

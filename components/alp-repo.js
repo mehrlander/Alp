@@ -21,16 +21,14 @@ export function defineRepoComponent() {
               class="input input-xs w-24" placeholder="token">
           </div>
 
-          <!-- Tabs + current file -->
+          <!-- Tabs -->
           <div class="flex items-center gap-2">
             <div class="tabs tabs-xs tabs-boxed">
-              <button class="tab" :class="tab==='files'?'tab-active':''" @click="tab='files'; currentFile=null">Files</button>
-              <button class="tab" :class="tab==='branches'?'tab-active':''" @click="tab='branches'; currentFile=null">Branches</button>
-              <button class="tab" :class="tab==='commits'?'tab-active':''" @click="tab='commits'; currentFile=null">Commits</button>
-              <button class="tab" :class="tab==='info'?'tab-active':''" @click="tab='info'; currentFile=null">Info</button>
+              <button class="tab" :class="tab==='files'?'tab-active':''" @click="tab='files'">Files</button>
+              <button class="tab" :class="tab==='branches'?'tab-active':''" @click="tab='branches'">Branches</button>
+              <button class="tab" :class="tab==='commits'?'tab-active':''" @click="tab='commits'">Commits</button>
+              <button class="tab" :class="tab==='info'?'tab-active':''" @click="tab='info'">Info</button>
             </div>
-            <span x-show="currentFile" class="text-xs text-primary truncate flex-1" x-text="currentFile"></span>
-            <button x-show="currentFile" @click="currentFile=null; fileContent=''" class="btn btn-xs btn-ghost">✕</button>
           </div>
 
           <!-- Loading -->
@@ -41,28 +39,40 @@ export function defineRepoComponent() {
           <!-- Error -->
           <div x-show="error" class="text-error text-xs" x-text="error"></div>
 
-          <!-- File Content View -->
-          <div x-show="currentFile && !loading" class="max-h-64 overflow-auto">
-            <pre class="text-xs bg-base-300 p-2 rounded overflow-x-auto"><code x-text="fileContent"></code></pre>
-          </div>
-
           <!-- Files Tab -->
-          <div x-show="tab==='files' && !currentFile && !loading" class="max-h-48 overflow-y-auto">
-            <div x-show="!files.length" class="text-xs text-base-content/50 italic">No files loaded</div>
-            <template x-for="f in files" :key="f.path">
-              <div
-                class="flex items-center gap-1 text-xs py-0.5 border-b border-base-300"
-                :class="f.type==='file' ? 'cursor-pointer hover:bg-base-300' : ''"
-                @click="f.type==='file' && openFile(f.path)">
-                <span x-text="f.type==='dir'?'📁':'📄'" class="text-[10px]"></span>
-                <span x-text="f.path" class="truncate"></span>
-                <span class="text-base-content/50 ml-auto" x-text="f.size ? formatSize(f.size) : ''"></span>
-              </div>
-            </template>
+          <div x-show="tab==='files' && !loading" class="space-y-2">
+            <!-- Selection controls -->
+            <div class="flex items-center gap-2 text-xs">
+              <span x-show="selectedFiles.length" class="text-primary" x-text="selectedFiles.length + ' selected'"></span>
+              <button x-show="selectedFiles.length" @click="copySelectedFiles()" class="btn btn-xs btn-primary" :disabled="copying">
+                <span x-show="copying" class="loading loading-spinner loading-xs"></span>
+                <span x-show="!copying">Copy</span>
+              </button>
+              <span x-show="copyMsg" x-text="copyMsg" class="text-success text-[10px]"></span>
+              <button x-show="selectedFiles.length" @click="selectedFiles = []" class="btn btn-xs btn-ghost">Clear</button>
+            </div>
+            <!-- File list -->
+            <div class="max-h-48 overflow-y-auto">
+              <div x-show="!files.length" class="text-xs text-base-content/50 italic">No files loaded</div>
+              <template x-for="f in files" :key="f.path">
+                <div
+                  class="flex items-center gap-1 text-xs py-0.5 border-b border-base-300"
+                  :class="f.type==='file' ? 'cursor-pointer hover:bg-base-300' : ''">
+                  <template x-if="f.type==='file'">
+                    <input type="checkbox" class="checkbox checkbox-xs"
+                      :checked="selectedFiles.includes(f.path)"
+                      @click="toggleFile(f.path)">
+                  </template>
+                  <span x-text="f.type==='dir'?'📁':'📄'" class="text-[10px]"></span>
+                  <span x-text="f.path" class="truncate flex-1" @click="f.type==='file' && toggleFile(f.path)"></span>
+                  <span class="text-base-content/50" x-text="f.size ? formatSize(f.size) : ''"></span>
+                </div>
+              </template>
+            </div>
           </div>
 
           <!-- Branches Tab -->
-          <div x-show="tab==='branches' && !currentFile && !loading" class="max-h-48 overflow-y-auto">
+          <div x-show="tab==='branches' && !loading" class="max-h-48 overflow-y-auto">
             <div x-show="!branches.length" class="text-xs text-base-content/50 italic">No branches loaded</div>
             <!-- Active branch indicator -->
             <div x-show="activeBranch" class="flex items-center gap-2 mb-2 p-1 bg-success/10 rounded text-xs">
@@ -91,7 +101,7 @@ export function defineRepoComponent() {
           </div>
 
           <!-- Commits Tab -->
-          <div x-show="tab==='commits' && !currentFile && !loading" class="max-h-48 overflow-y-auto space-y-1">
+          <div x-show="tab==='commits' && !loading" class="max-h-48 overflow-y-auto space-y-1">
             <div x-show="!commits.length" class="text-xs text-base-content/50 italic">No commits loaded</div>
             <template x-for="c in commits" :key="c.sha">
               <div class="text-xs border-b border-base-300 pb-1">
@@ -106,7 +116,7 @@ export function defineRepoComponent() {
           </div>
 
           <!-- Info Tab -->
-          <div x-show="tab==='info' && !currentFile && !loading" class="text-xs space-y-1">
+          <div x-show="tab==='info' && !loading" class="text-xs space-y-1">
             <div x-show="!info.name" class="text-base-content/50 italic">No repo info loaded</div>
             <template x-if="info.name">
               <div class="space-y-1">
@@ -133,8 +143,9 @@ export function defineRepoComponent() {
       info: {},
       branches: [],
       selectedBranch: '',
-      currentFile: null,
-      fileContent: '',
+      selectedFiles: [],
+      copying: false,
+      copyMsg: '',
       activeBranch: '',
       loadingBranch: false,
 
@@ -157,8 +168,7 @@ export function defineRepoComponent() {
         if (!this.repo) return;
         this.loading = true;
         this.error = '';
-        this.currentFile = null;
-        this.fileContent = '';
+        this.selectedFiles = [];
 
         try {
           await this.fetchInfo();
@@ -185,8 +195,7 @@ export function defineRepoComponent() {
       async switchBranch() {
         this.loading = true;
         this.error = '';
-        this.currentFile = null;
-        this.fileContent = '';
+        this.selectedFiles = [];
         try {
           await Promise.all([
             this.fetchFiles(),
@@ -208,18 +217,42 @@ export function defineRepoComponent() {
         return raw ? res.text() : res.json();
       },
 
-      async openFile(path) {
-        this.loading = true;
+      toggleFile(path) {
+        const idx = this.selectedFiles.indexOf(path);
+        if (idx >= 0) {
+          this.selectedFiles.splice(idx, 1);
+        } else {
+          this.selectedFiles.push(path);
+        }
+      },
+
+      async copySelectedFiles() {
+        if (!this.selectedFiles.length) return;
+
+        this.copying = true;
         this.error = '';
+        this.copyMsg = '';
+
         try {
           const branch = this.selectedBranch || this.info.branch || 'main';
-          this.fileContent = await this.ghFetch('/repos/' + this.repo + '/contents/' + path + '?ref=' + branch, true);
-          this.currentFile = path;
+          const parts = [];
+
+          for (const path of this.selectedFiles) {
+            const content = await this.ghFetch('/repos/' + this.repo + '/contents/' + path + '?ref=' + branch, true);
+            const ext = path.split('.').pop() || '';
+            parts.push(`## ${path}\n\n\`\`\`${ext}\n${content}\n\`\`\``);
+          }
+
+          const markdown = parts.join('\n\n');
+          await navigator.clipboard.writeText(markdown);
+          this.copyMsg = 'copied!';
+          setTimeout(() => this.copyMsg = '', 2000);
         } catch (e) {
-          this.error = 'Failed to load file: ' + e.message;
-          console.error('File fetch error:', e);
+          this.error = 'Failed to copy files: ' + e.message;
+          console.error('Copy files error:', e);
         }
-        this.loading = false;
+
+        this.copying = false;
       },
 
       async fetchInfo() {
