@@ -21,11 +21,15 @@ export function defineRepoComponent() {
               class="input input-xs w-24" placeholder="token">
           </div>
 
-          <!-- Tabs -->
-          <div class="tabs tabs-xs tabs-boxed">
-            <button class="tab" :class="tab==='files'?'tab-active':''" @click="tab='files'">Files</button>
-            <button class="tab" :class="tab==='commits'?'tab-active':''" @click="tab='commits'">Commits</button>
-            <button class="tab" :class="tab==='info'?'tab-active':''" @click="tab='info'">Info</button>
+          <!-- Tabs + current file -->
+          <div class="flex items-center gap-2">
+            <div class="tabs tabs-xs tabs-boxed">
+              <button class="tab" :class="tab==='files'?'tab-active':''" @click="tab='files'; currentFile=null">Files</button>
+              <button class="tab" :class="tab==='commits'?'tab-active':''" @click="tab='commits'; currentFile=null">Commits</button>
+              <button class="tab" :class="tab==='info'?'tab-active':''" @click="tab='info'; currentFile=null">Info</button>
+            </div>
+            <span x-show="currentFile" class="text-xs text-primary truncate flex-1" x-text="currentFile"></span>
+            <button x-show="currentFile" @click="currentFile=null; fileContent=''" class="btn btn-xs btn-ghost">✕</button>
           </div>
 
           <!-- Loading -->
@@ -36,11 +40,19 @@ export function defineRepoComponent() {
           <!-- Error -->
           <div x-show="error" class="text-error text-xs" x-text="error"></div>
 
+          <!-- File Content View -->
+          <div x-show="currentFile && !loading" class="max-h-64 overflow-auto">
+            <pre class="text-xs bg-base-300 p-2 rounded overflow-x-auto"><code x-text="fileContent"></code></pre>
+          </div>
+
           <!-- Files Tab -->
-          <div x-show="tab==='files' && !loading" class="max-h-48 overflow-y-auto">
+          <div x-show="tab==='files' && !currentFile && !loading" class="max-h-48 overflow-y-auto">
             <div x-show="!files.length" class="text-xs text-base-content/50 italic">No files loaded</div>
             <template x-for="f in files" :key="f.path">
-              <div class="flex items-center gap-1 text-xs py-0.5 border-b border-base-300">
+              <div
+                class="flex items-center gap-1 text-xs py-0.5 border-b border-base-300"
+                :class="f.type==='file' ? 'cursor-pointer hover:bg-base-300' : ''"
+                @click="f.type==='file' && openFile(f.path)">
                 <span x-text="f.type==='dir'?'📁':'📄'" class="text-[10px]"></span>
                 <span x-text="f.path" class="truncate"></span>
                 <span class="text-base-content/50 ml-auto" x-text="f.size ? formatSize(f.size) : ''"></span>
@@ -49,7 +61,7 @@ export function defineRepoComponent() {
           </div>
 
           <!-- Commits Tab -->
-          <div x-show="tab==='commits' && !loading" class="max-h-48 overflow-y-auto space-y-1">
+          <div x-show="tab==='commits' && !currentFile && !loading" class="max-h-48 overflow-y-auto space-y-1">
             <div x-show="!commits.length" class="text-xs text-base-content/50 italic">No commits loaded</div>
             <template x-for="c in commits" :key="c.sha">
               <div class="text-xs border-b border-base-300 pb-1">
@@ -64,7 +76,7 @@ export function defineRepoComponent() {
           </div>
 
           <!-- Info Tab -->
-          <div x-show="tab==='info' && !loading" class="text-xs space-y-1">
+          <div x-show="tab==='info' && !currentFile && !loading" class="text-xs space-y-1">
             <div x-show="!info.name" class="text-base-content/50 italic">No repo info loaded</div>
             <template x-if="info.name">
               <div class="space-y-1">
@@ -89,6 +101,8 @@ export function defineRepoComponent() {
       files: [],
       commits: [],
       info: {},
+      currentFile: null,
+      fileContent: '',
 
       async nav() {
         const data = await this.load();
@@ -107,6 +121,8 @@ export function defineRepoComponent() {
         if (!this.repo) return;
         this.loading = true;
         this.error = '';
+        this.currentFile = null;
+        this.fileContent = '';
 
         try {
           await Promise.all([
@@ -122,13 +138,26 @@ export function defineRepoComponent() {
         this.loading = false;
       },
 
-      async ghFetch(endpoint) {
-        const headers = { 'Accept': 'application/vnd.github.v3+json' };
+      async ghFetch(endpoint, raw = false) {
+        const headers = { 'Accept': raw ? 'application/vnd.github.v3.raw' : 'application/vnd.github.v3+json' };
         if (this.token) headers['Authorization'] = 'token ' + this.token;
 
         const res = await fetch('https://api.github.com' + endpoint, { headers });
         if (!res.ok) throw new Error(res.status + ': ' + (await res.text()).slice(0, 100));
-        return res.json();
+        return raw ? res.text() : res.json();
+      },
+
+      async openFile(path) {
+        this.loading = true;
+        this.error = '';
+        try {
+          this.fileContent = await this.ghFetch('/repos/' + this.repo + '/contents/' + path, true);
+          this.currentFile = path;
+        } catch (e) {
+          this.error = 'Failed to load file: ' + e.message;
+          console.error('File fetch error:', e);
+        }
+        this.loading = false;
       },
 
       async fetchInfo() {
