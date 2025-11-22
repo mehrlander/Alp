@@ -8,19 +8,17 @@ export function defineTextComponent() {
         <div class="flex justify-between items-center px-2 py-1 bg-base-300">
           <span class="text-xs font-semibold">Text</span>
           <div class="flex gap-1 items-center">
-            <button @click="save({text})" class="btn btn-xs btn-ghost">💾</button>
           </div>
         </div>
-        <div class="p-2">
-          <textarea
-            x-model="text"
-            @blur="save({text})"
-            class="textarea textarea-bordered w-full h-32 text-sm"
-            placeholder="text..."></textarea>
-        </div>
+        <textarea
+          x-model="text"
+          @blur="save({text})"
+          class="textarea w-full h-32 text-sm rounded-none border-0 focus:outline-none"
+          placeholder="text..."></textarea>
         <div class="flex justify-between items-center px-2 py-1 bg-base-300 text-xs gap-2">
-          ${alp.fill('pathInput')}
           ${alp.fill('codeModal', 'text')}
+          <div class="flex-1"></div>
+          ${alp.fill('pathInput')}
         </div>
       </div>
     `,

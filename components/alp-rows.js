@@ -11,12 +11,11 @@ export function defineRowsComponent() {
             <button @click="addRow()" class="btn btn-xs btn-ghost">+ add</button>
           </div>
         </div>
-        <div class="p-2">
-          <div name="rows-table"></div>
-        </div>
+        <div name="rows-table"></div>
         <div class="flex justify-between items-center px-2 py-1 bg-base-300 text-xs gap-2">
-          ${alp.fill('pathInput')}
           ${alp.fill('codeModal', 'rows')}
+          <div class="flex-1"></div>
+          ${alp.fill('pathInput')}
         </div>
       </div>
     `,
