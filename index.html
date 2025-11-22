@@ -16,7 +16,11 @@
     <alp-rows class="m-2"></alp-rows>
   </div>
 
-  <alp-inspector class="fixed bottom-32 right-4"></alp-inspector>
+  <!-- Floating action button in corner -->
+  <alp-fab class="fixed bottom-32 right-4" icon="ph ph-gear-six" target="alp.modal"></alp-fab>
+
+  <!-- Modal (includes hub and pages) -->
+  <alp-modal></alp-modal>
 
   <script type="module">
     // Core system (includes fills and installers)
@@ -27,7 +31,10 @@
     import { defineRepoComponent } from './components/alp-repo.js';
     import { defineTextComponent } from './components/alp-text.js';
     import { defineRowsComponent } from './components/alp-rows.js';
-    import { defineInspectorComponent } from './components/alp-inspector.js';
+    import { defineFabComponent } from './components/alp-fab.js';
+    import { defineModalComponent } from './components/alp-modal.js';
+    import { defineHubComponent } from './components/alp-hub.js';
+    import { definePagesComponent } from './components/alp-pages.js';
 
     // Make alp available globally for Alpine templates
     window.alp = alp;
@@ -37,7 +44,10 @@
     defineRepoComponent();
     defineTextComponent();
     defineRowsComponent();
-    defineInspectorComponent();
+    defineFabComponent();
+    defineHubComponent();
+    definePagesComponent();
+    defineModalComponent();  // after hub/pages since modal template includes them
   </script>
 
   <script defer src="https://unpkg.com/alpinejs"></script>
