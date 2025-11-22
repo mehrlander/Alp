@@ -2,6 +2,36 @@
 import { fills } from '../utils/fills.js';
 import { installers } from '../utils/installers.js';
 
+// Console capture - as early as possible
+const consoleLogs = [];
+const maxLogs = 100;
+const originalConsole = {
+  log: console.log.bind(console),
+  warn: console.warn.bind(console),
+  error: console.error.bind(console),
+  info: console.info.bind(console)
+};
+
+const captureConsole = (type, ...args) => {
+  const entry = {
+    type,
+    time: new Date().toLocaleTimeString(),
+    args: args.map(a => {
+      try {
+        return typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a);
+      } catch { return String(a); }
+    }).join(' ')
+  };
+  consoleLogs.push(entry);
+  if (consoleLogs.length > maxLogs) consoleLogs.shift();
+  originalConsole[type](...args);
+};
+
+console.log = (...args) => captureConsole('log', ...args);
+console.warn = (...args) => captureConsole('warn', ...args);
+console.error = (...args) => captureConsole('error', ...args);
+console.info = (...args) => captureConsole('info', ...args);
+
 // Database setup
 const db = new Dexie('AlpDB');
 db.version(1).stores({ alp: 'name' });
@@ -57,6 +87,7 @@ addEventListener("alpine:init", () => {
 export const alp = {
   db,
   components,
+  consoleLogs,
 
   // Data operations
   load,

@@ -10,6 +10,7 @@
 <body class="min-h-dvh">
 
   <div class="max-w mx-auto p-2">
+    <alp-console class="m-2"></alp-console>
     <alp-text class="m-2"></alp-text>
     <alp-rows class="m-2"></alp-rows>
   </div>
@@ -21,6 +22,7 @@
     import { alp } from './core/alp-core.js';
 
     // Components
+    import { defineConsoleComponent } from './components/alp-console.js';
     import { defineTextComponent } from './components/alp-text.js';
     import { defineRowsComponent } from './components/alp-rows.js';
     import { defineInspectorComponent } from './components/alp-inspector.js';
@@ -28,7 +30,8 @@
     // Make alp available globally for Alpine templates
     window.alp = alp;
 
-    // Register components
+    // Register components (console first for early capture visibility)
+    defineConsoleComponent();
     defineTextComponent();
     defineRowsComponent();
     defineInspectorComponent();
