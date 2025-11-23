@@ -244,7 +244,17 @@ export function defineRepoComponent() {
           }
 
           const markdown = parts.join('\n\n');
-          await navigator.clipboard.writeText(markdown);
+
+          // Use textarea fallback since clipboard API needs immediate user gesture
+          const textarea = document.createElement('textarea');
+          textarea.value = markdown;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+
           this.copyMsg = 'copied!';
           setTimeout(() => this.copyMsg = '', 2000);
         } catch (e) {
