@@ -243,28 +243,50 @@ export const alp = {
     // Check for branch source
     await this.loadBranchSource();
 
+    const total = componentNames.length;
+    let loaded = 0;
+    let failed = 0;
+    let fallback = 0;
+
     if (branchSource) {
-      console.log(`🌿 Loading components from ${branchSource.repo}@${branchSource.branch}`);
+      console.log(`🌿 Branch source configured in IndexedDB`);
+      console.log(`   Repo: ${branchSource.repo}`);
+      console.log(`   Branch: ${branchSource.branch}`);
+      console.log(`   Token: ${branchSource.token ? 'provided' : 'none'}`);
+      console.log(`📦 Loading ${total} components from branch...`);
 
       for (const name of componentNames) {
         try {
           await this.loadComponentFromBranch(name);
+          loaded++;
         } catch (e) {
-          console.error(`Failed to load ${name} from branch:`, e);
+          failed++;
+          console.error(`   ✗ ${name}: ${e.message}`);
           // Fall back to local
-          console.log(`⚠️ Falling back to local for ${name}`);
           if (localImports[name]) {
             localImports[name]();
+            fallback++;
+            console.log(`   ↩ ${name}: fell back to local`);
           }
         }
       }
+
+      console.log(`✅ Component loading complete:`);
+      console.log(`   From branch: ${loaded}/${total}`);
+      if (fallback > 0) console.log(`   Fallback to local: ${fallback}`);
+      if (failed > 0) console.log(`   Failed: ${failed - fallback}`);
     } else {
-      console.log('📦 Loading components locally');
+      console.log(`📦 No branch source configured in IndexedDB`);
+      console.log(`   Loading ${total} components locally...`);
+
       for (const name of componentNames) {
         if (localImports[name]) {
           localImports[name]();
+          loaded++;
         }
       }
+
+      console.log(`✅ Loaded ${loaded}/${total} components locally`);
     }
   }
 };
