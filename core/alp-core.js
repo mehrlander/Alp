@@ -40,6 +40,9 @@ db.version(1).stores({ alp: 'name' });
 const state = {};
 const components = {};
 
+// Branch source config (loaded from IDB)
+let branchSource = null;
+
 // Base HTMLElement class for all alp components
 class Alp extends HTMLElement {
   connectedCallback() {
@@ -139,5 +142,151 @@ export const alp = {
     addEventListener("alpine:init", () => {
       components[path] = Alpine.store('alp')[tagEnd];
     }, { once: 1 });
+  },
+
+  // Branch source management
+  getBranchSource() {
+    return branchSource;
+  },
+
+  async loadBranchSource() {
+    const data = await loadRecord('alp.branchSource');
+    branchSource = data || null;
+    return branchSource;
+  },
+
+  async setBranchSource(repo, branch, token = '') {
+    branchSource = { repo, branch, token };
+    await saveRecord('alp.branchSource', branchSource);
+    console.log(`🌿 Branch source set: ${repo}@${branch}`);
+    return branchSource;
+  },
+
+  async clearBranchSource() {
+    branchSource = null;
+    await deleteRecord('alp.branchSource');
+    console.log('🌿 Branch source cleared, using local');
+  },
+
+  // Fetch file from GitHub
+  async fetchFromGitHub(path) {
+    if (!branchSource) throw new Error('No branch source configured');
+
+    const { repo, branch, token } = branchSource;
+    const headers = { 'Accept': 'application/vnd.github.v3.raw' };
+    if (token) headers['Authorization'] = 'token ' + token;
+
+    const url = `https://api.github.com/repos/${repo}/contents/${path}?ref=${branch}`;
+    const res = await fetch(url, { headers });
+
+    if (!res.ok) {
+      throw new Error(`GitHub fetch failed: ${res.status}`);
+    }
+
+    return res.text();
+  },
+
+  // Load and execute a component from the configured branch
+  async loadComponentFromBranch(componentName) {
+    const filePath = `components/alp-${componentName}.js`;
+    console.log(`📥 Loading ${filePath} from ${branchSource.repo}@${branchSource.branch}`);
+
+    const source = await this.fetchFromGitHub(filePath);
+
+    // Create a proxy alp that forwards to real alp
+    const proxyAlp = {
+      define: (tagEnd, tpl, initialState = {}) => {
+        this.define(tagEnd, tpl, initialState);
+      },
+      fill: (...args) => this.fill(...args),
+      install: (...args) => this.install(...args),
+      load: this.load,
+      loadRecord: this.loadRecord,
+      saveRecord: this.saveRecord,
+      deleteRecord: this.deleteRecord,
+      db: this.db
+    };
+
+    // Remove import/export statements and wrap in function
+    let cleanSource = source
+      .replace(/import\s+\{[^}]*\}\s+from\s+['"][^'"]+['"];?/g, '')
+      .replace(/import\s+['"][^'"]+['"];?/g, '')
+      .replace(/export\s+function\s+/g, 'function ')
+      .replace(/export\s+\{[^}]*\};?/g, '');
+
+    // Find the define function name
+    const defineFnMatch = cleanSource.match(/function\s+(define\w+Component)\s*\(\)/);
+    if (!defineFnMatch) {
+      throw new Error(`No define function found in ${filePath}`);
+    }
+
+    const defineFnName = defineFnMatch[1];
+
+    // Execute the source with proxy alp
+    const wrappedCode = `
+      (function(alp) {
+        ${cleanSource}
+        if (typeof ${defineFnName} === 'function') {
+          ${defineFnName}();
+        }
+      })
+    `;
+
+    const fn = eval(wrappedCode);
+    fn(proxyAlp);
+
+    console.log(`✅ Loaded ${componentName} from branch`);
+  },
+
+  // Load multiple components - from branch if configured, otherwise import locally
+  async loadComponents(componentNames, localImports) {
+    // Check for branch source
+    await this.loadBranchSource();
+
+    const total = componentNames.length;
+    let loaded = 0;
+    let failed = 0;
+    let fallback = 0;
+
+    if (branchSource) {
+      console.log(`🌿 Branch source configured in IndexedDB`);
+      console.log(`   Repo: ${branchSource.repo}`);
+      console.log(`   Branch: ${branchSource.branch}`);
+      console.log(`   Token: ${branchSource.token ? 'provided' : 'none'}`);
+      console.log(`📦 Loading ${total} components from branch...`);
+
+      for (const name of componentNames) {
+        try {
+          await this.loadComponentFromBranch(name);
+          loaded++;
+        } catch (e) {
+          failed++;
+          console.error(`   ✗ ${name}: ${e.message}`);
+          // Fall back to local
+          if (localImports[name]) {
+            localImports[name]();
+            fallback++;
+            console.log(`   ↩ ${name}: fell back to local`);
+          }
+        }
+      }
+
+      console.log(`✅ Component loading complete:`);
+      console.log(`   From branch: ${loaded}/${total}`);
+      if (fallback > 0) console.log(`   Fallback to local: ${fallback}`);
+      if (failed > 0) console.log(`   Failed: ${failed - fallback}`);
+    } else {
+      console.log(`📦 No branch source configured in IndexedDB`);
+      console.log(`   Loading ${total} components locally...`);
+
+      for (const name of componentNames) {
+        if (localImports[name]) {
+          localImports[name]();
+          loaded++;
+        }
+      }
+
+      console.log(`✅ Loaded ${loaded}/${total} components locally`);
+    }
   }
 };
