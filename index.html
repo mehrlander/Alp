@@ -23,7 +23,7 @@
     // Core system (includes fills and installers)
     import { alp } from './core/alp-core.js';
 
-    // Components
+    // Local component imports
     import { defineConsoleComponent } from './components/alp-console.js';
     import { defineRepoComponent } from './components/alp-repo.js';
     import { defineInspectComponent } from './components/alp-inspect.js';
@@ -34,13 +34,19 @@
     // Make alp available globally for Alpine templates
     window.alp = alp;
 
-    // Register components (console first for early capture visibility)
-    defineConsoleComponent();
-    defineRepoComponent();
-    defineInspectComponent();
-    defineTextComponent();
-    defineRowsComponent();
-    defineInspectorComponent();
+    // Component names and their local define functions
+    const componentNames = ['console', 'repo', 'inspect', 'text', 'rows', 'inspector'];
+    const localImports = {
+      console: defineConsoleComponent,
+      repo: defineRepoComponent,
+      inspect: defineInspectComponent,
+      text: defineTextComponent,
+      rows: defineRowsComponent,
+      inspector: defineInspectorComponent
+    };
+
+    // Load components - from branch source if configured, else locally
+    await alp.loadComponents(componentNames, localImports);
   </script>
 
   <script defer src="https://unpkg.com/alpinejs"></script>

@@ -21,6 +21,13 @@ export function defineRepoComponent() {
               class="input input-xs w-24" placeholder="token">
           </div>
 
+          <!-- Branch source indicator -->
+          <div x-show="branchSource" class="flex items-center gap-2 p-1 bg-success/10 rounded text-xs">
+            <span class="badge badge-success badge-xs">Source</span>
+            <span x-text="branchSource?.repo + '@' + branchSource?.branch"></span>
+            <button @click="clearBranchSource()" class="btn btn-xs btn-ghost ml-auto">Clear & Reload</button>
+          </div>
+
           <!-- Tabs -->
           <div class="flex items-center gap-2">
             <div class="tabs tabs-xs tabs-boxed">
@@ -74,12 +81,6 @@ export function defineRepoComponent() {
           <!-- Branches Tab -->
           <div x-show="tab==='branches' && !loading" class="max-h-48 overflow-y-auto">
             <div x-show="!branches.length" class="text-xs text-base-content/50 italic">No branches loaded</div>
-            <!-- Active branch indicator -->
-            <div x-show="activeBranch" class="flex items-center gap-2 mb-2 p-1 bg-success/10 rounded text-xs">
-              <span class="badge badge-success badge-xs">Active</span>
-              <span x-text="selectedBranch"></span>
-              <button @click="deactivateBranch()" class="btn btn-xs btn-ghost ml-auto">Reset</button>
-            </div>
             <template x-for="b in branches" :key="b">
               <div
                 class="flex items-center gap-2 text-xs py-1 px-1 border-b border-base-300 cursor-pointer hover:bg-base-300 rounded"
@@ -87,14 +88,13 @@ export function defineRepoComponent() {
                 @click="selectBranch(b)">
                 <span x-text="b === info.branch ? '★' : ''" class="text-warning text-[10px] w-3"></span>
                 <span x-text="b" class="flex-1 truncate"></span>
-                <template x-if="selectedBranch === b && (!activeBranch || activeBranch !== branchSuffix(b))">
-                  <button @click.stop="activateBranch()" class="btn btn-xs btn-primary" :disabled="loadingBranch">
-                    <span x-show="loadingBranch" class="loading loading-spinner loading-xs"></span>
-                    <span x-show="!loadingBranch">Activate</span>
+                <template x-if="selectedBranch === b && !isActiveBranch(b)">
+                  <button @click.stop="activateBranch()" class="btn btn-xs btn-primary">
+                    Use as Source
                   </button>
                 </template>
-                <template x-if="activeBranch && activeBranch === branchSuffix(b)">
-                  <span class="badge badge-success badge-xs">Active</span>
+                <template x-if="isActiveBranch(b)">
+                  <span class="badge badge-success badge-xs">Active Source</span>
                 </template>
               </div>
             </template>
@@ -146,8 +146,7 @@ export function defineRepoComponent() {
       selectedFiles: [],
       copying: false,
       copyMsg: '',
-      activeBranch: '',
-      loadingBranch: false,
+      branchSource: null,
 
       async nav() {
         const data = await this.load();
@@ -155,8 +154,8 @@ export function defineRepoComponent() {
           this.repo = data.repo || '';
           this.token = data.token || '';
         }
-        // Load active branch from storage
-        this.activeBranch = await alp.loadActiveBranch() || '';
+        // Load branch source from storage
+        this.branchSource = alp.getBranchSource();
         if (this.repo) this.refresh();
       },
 
@@ -315,127 +314,31 @@ export function defineRepoComponent() {
         return d.toLocaleDateString() + ' ' + d.toLocaleTimeString().slice(0, 5);
       },
 
-      // Generate a short suffix from branch name (for tag names)
-      branchSuffix(branch) {
-        // Create a short hash-like suffix from branch name
-        // Remove special chars, take first 8 chars
-        return branch.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, 8);
+      isActiveBranch(branch) {
+        return this.branchSource?.repo === this.repo && this.branchSource?.branch === branch;
       },
 
       async activateBranch() {
         if (!this.selectedBranch || !this.repo) return;
 
-        this.loadingBranch = true;
-        this.error = '';
-        const suffix = this.branchSuffix(this.selectedBranch);
-
         try {
-          console.log(`🌿 Activating branch: ${this.selectedBranch} (suffix: ${suffix})`);
+          await alp.setBranchSource(this.repo, this.selectedBranch, this.token);
+          this.branchSource = alp.getBranchSource();
 
-          // Find component files in the branch
-          const componentFiles = this.files.filter(f =>
-            f.type === 'file' &&
-            f.path.startsWith('components/') &&
-            f.path.endsWith('.js')
-          );
-
-          console.log(`📦 Found ${componentFiles.length} component files`);
-
-          // Fetch and define each component with suffix
-          for (const file of componentFiles) {
-            await this.loadBranchComponent(file.path, suffix);
+          // Prompt user to reload
+          if (confirm(`Branch source set to ${this.repo}@${this.selectedBranch}. Reload page to load components from this branch?`)) {
+            location.reload();
           }
-
-          // Store active branch
-          await alp.setActiveBranch(suffix);
-          this.activeBranch = suffix;
-
-          // Swap elements to use branch components
-          alp.swapToSuffix(suffix);
-
-          console.log(`✅ Branch ${this.selectedBranch} activated`);
         } catch (e) {
-          this.error = 'Failed to activate branch: ' + e.message;
-          console.error('Branch activation error:', e);
-        }
-
-        this.loadingBranch = false;
-      },
-
-      async loadBranchComponent(filePath, suffix) {
-        const branch = this.selectedBranch || this.info.branch || 'main';
-        console.log(`📥 Loading component: ${filePath} from branch ${branch}`);
-
-        try {
-          // Fetch the component source
-          const source = await this.ghFetch('/repos/' + this.repo + '/contents/' + filePath + '?ref=' + branch, true);
-
-          // Create a proxy alp object that redirects define to defineWithSuffix
-          const proxyAlp = {
-            define: (tagEnd, tpl, initialState = {}) => {
-              console.log(`🔀 Intercepted define for: ${tagEnd}`);
-              alp.defineWithSuffix(tagEnd, tpl, initialState, suffix);
-            },
-            // Forward other alp methods
-            fill: (...args) => alp.fill(...args),
-            install: (...args) => alp.install(...args),
-            load: alp.load,
-            loadRecord: alp.loadRecord,
-            saveRecord: alp.saveRecord,
-            deleteRecord: alp.deleteRecord,
-            db: alp.db
-          };
-
-          // Remove import/export statements and wrap in function
-          let cleanSource = source
-            // Remove import statements
-            .replace(/import\s+\{[^}]*\}\s+from\s+['"][^'"]+['"];?/g, '')
-            .replace(/import\s+['"][^'"]+['"];?/g, '')
-            // Remove export statements but keep the function
-            .replace(/export\s+function\s+/g, 'function ')
-            .replace(/export\s+\{[^}]*\};?/g, '');
-
-          // Find the define function name (e.g., defineTextComponent)
-          const defineFnMatch = cleanSource.match(/function\s+(define\w+Component)\s*\(\)/);
-          if (!defineFnMatch) {
-            console.warn(`⚠️ No define function found in ${filePath}`);
-            return;
-          }
-
-          const defineFnName = defineFnMatch[1];
-
-          // Execute the source with our proxy alp
-          const wrappedCode = `
-            (function(alp) {
-              ${cleanSource}
-              if (typeof ${defineFnName} === 'function') {
-                ${defineFnName}();
-              }
-            })
-          `;
-
-          const fn = eval(wrappedCode);
-          fn(proxyAlp);
-
-          console.log(`✅ Loaded component from ${filePath} with suffix ${suffix}`);
-
-        } catch (e) {
-          console.error(`Failed to load ${filePath}:`, e);
-          throw e;
+          this.error = 'Failed to set branch source: ' + e.message;
+          console.error('Set branch source error:', e);
         }
       },
 
-      async deactivateBranch() {
-        console.log('🔄 Deactivating branch, returning to default');
-
-        // Swap back to default components
-        alp.swapToDefault();
-
-        // Clear stored active branch
-        await alp.setActiveBranch(null);
-        this.activeBranch = '';
-
-        console.log('✅ Returned to default components');
+      async clearBranchSource() {
+        await alp.clearBranchSource();
+        this.branchSource = null;
+        location.reload();
       }
     }
   );

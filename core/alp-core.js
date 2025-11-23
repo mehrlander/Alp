@@ -40,9 +40,8 @@ db.version(1).stores({ alp: 'name' });
 const state = {};
 const components = {};
 
-// Branch swapping state
-let activeBranchSuffix = null;
-const branchComponents = {}; // Track components defined per branch suffix
+// Branch source config (loaded from IDB)
+let branchSource = null;
 
 // Base HTMLElement class for all alp components
 class Alp extends HTMLElement {
@@ -145,145 +144,127 @@ export const alp = {
     }, { once: 1 });
   },
 
-  // Define component with branch suffix (for branch swapping)
-  defineWithSuffix(tagEnd, tpl, initialState = {}, suffix) {
-    if (!state.alp) state.alp = {};
+  // Branch source management
+  getBranchSource() {
+    return branchSource;
+  },
 
-    const suffixedTagEnd = `${tagEnd}-${suffix}`;
-    const path = `alp.${suffixedTagEnd}`;
+  async loadBranchSource() {
+    const data = await loadRecord('alp.branchSource');
+    branchSource = data || null;
+    return branchSource;
+  },
 
-    // Check if already defined
-    if (customElements.get('alp-' + suffixedTagEnd)) {
-      console.log(`⏭️ Component alp-${suffixedTagEnd} already defined`);
-      return;
+  async setBranchSource(repo, branch, token = '') {
+    branchSource = { repo, branch, token };
+    await saveRecord('alp.branchSource', branchSource);
+    console.log(`🌿 Branch source set: ${repo}@${branch}`);
+    return branchSource;
+  },
+
+  async clearBranchSource() {
+    branchSource = null;
+    await deleteRecord('alp.branchSource');
+    console.log('🌿 Branch source cleared, using local');
+  },
+
+  // Fetch file from GitHub
+  async fetchFromGitHub(path) {
+    if (!branchSource) throw new Error('No branch source configured');
+
+    const { repo, branch, token } = branchSource;
+    const headers = { 'Accept': 'application/vnd.github.v3.raw' };
+    if (token) headers['Authorization'] = 'token ' + token;
+
+    const url = `https://api.github.com/repos/${repo}/contents/${path}?ref=${branch}`;
+    const res = await fetch(url, { headers });
+
+    if (!res.ok) {
+      throw new Error(`GitHub fetch failed: ${res.status}`);
     }
 
-    const def = class extends Alp {
-      tpl() {
-        return `<div x-data="$store.${path}" x-init="el = $el; nav()">${tpl(path)}</div>`;
-      }
+    return res.text();
+  },
+
+  // Load and execute a component from the configured branch
+  async loadComponentFromBranch(componentName) {
+    const filePath = `components/alp-${componentName}.js`;
+    console.log(`📥 Loading ${filePath} from ${branchSource.repo}@${branchSource.branch}`);
+
+    const source = await this.fetchFromGitHub(filePath);
+
+    // Create a proxy alp that forwards to real alp
+    const proxyAlp = {
+      define: (tagEnd, tpl, initialState = {}) => {
+        this.define(tagEnd, tpl, initialState);
+      },
+      fill: (...args) => this.fill(...args),
+      install: (...args) => this.install(...args),
+      load: this.load,
+      loadRecord: this.loadRecord,
+      saveRecord: this.saveRecord,
+      deleteRecord: this.deleteRecord,
+      db: this.db
     };
 
-    Object.assign(def.prototype, { tagEnd: suffixedTagEnd, path, originalTagEnd: tagEnd });
+    // Remove import/export statements and wrap in function
+    let cleanSource = source
+      .replace(/import\s+\{[^}]*\}\s+from\s+['"][^'"]+['"];?/g, '')
+      .replace(/import\s+['"][^'"]+['"];?/g, '')
+      .replace(/export\s+function\s+/g, 'function ')
+      .replace(/export\s+\{[^}]*\};?/g, '');
 
-    state.alp[suffixedTagEnd] = {
-      ...initialState,
-      el: null,
-      defaultPath: path,
-      path: path,
-      find(s) { return this.el?.querySelector(s); },
-      async save(data) { await saveRecord(this.path, data); },
-      async load() { return await loadRecord(this.path); },
-      async del() { await deleteRecord(this.path); }
-    };
-
-    customElements.define('alp-' + suffixedTagEnd, def);
-
-    // Track which components are defined for this suffix
-    if (!branchComponents[suffix]) branchComponents[suffix] = [];
-    branchComponents[suffix].push(tagEnd);
-
-    // Register with Alpine if already initialized
-    if (window.Alpine?.store) {
-      Alpine.store('alp')[suffixedTagEnd] = state.alp[suffixedTagEnd];
-      components[path] = Alpine.store('alp')[suffixedTagEnd];
+    // Find the define function name
+    const defineFnMatch = cleanSource.match(/function\s+(define\w+Component)\s*\(\)/);
+    if (!defineFnMatch) {
+      throw new Error(`No define function found in ${filePath}`);
     }
 
-    console.log(`🌿 Defined alp-${suffixedTagEnd} for branch`);
+    const defineFnName = defineFnMatch[1];
+
+    // Execute the source with proxy alp
+    const wrappedCode = `
+      (function(alp) {
+        ${cleanSource}
+        if (typeof ${defineFnName} === 'function') {
+          ${defineFnName}();
+        }
+      })
+    `;
+
+    const fn = eval(wrappedCode);
+    fn(proxyAlp);
+
+    console.log(`✅ Loaded ${componentName} from branch`);
   },
 
-  // Get/set active branch suffix
-  getActiveBranch() { return activeBranchSuffix; },
+  // Load multiple components - from branch if configured, otherwise import locally
+  async loadComponents(componentNames, localImports) {
+    // Check for branch source
+    await this.loadBranchSource();
 
-  async setActiveBranch(suffix) {
-    activeBranchSuffix = suffix;
-    await saveRecord('alp.activeBranch', { suffix });
-    console.log(`🌿 Active branch set to: ${suffix || 'default'}`);
-  },
+    if (branchSource) {
+      console.log(`🌿 Loading components from ${branchSource.repo}@${branchSource.branch}`);
 
-  async loadActiveBranch() {
-    const data = await loadRecord('alp.activeBranch');
-    activeBranchSuffix = data?.suffix || null;
-    return activeBranchSuffix;
-  },
-
-  // Swap all alp-* elements to use branch-suffixed versions
-  swapToSuffix(suffix) {
-    const elements = document.querySelectorAll('[class*="alp-"]');
-    const alpElements = Array.from(document.querySelectorAll('*'))
-      .filter(el => el.tagName.toLowerCase().startsWith('alp-') &&
-                    !el.tagName.toLowerCase().includes('-' + suffix));
-
-    console.log(`🔄 Swapping ${alpElements.length} elements to suffix: ${suffix}`);
-
-    alpElements.forEach(el => {
-      const tagName = el.tagName.toLowerCase();
-      // Extract base component name (e.g., 'alp-text' -> 'text')
-      const baseName = tagName.replace('alp-', '').split('-')[0];
-      const newTagName = `alp-${baseName}-${suffix}`;
-
-      // Check if the suffixed component is defined
-      if (!customElements.get(newTagName)) {
-        console.warn(`⚠️ Component ${newTagName} not defined, skipping`);
-        return;
+      for (const name of componentNames) {
+        try {
+          await this.loadComponentFromBranch(name);
+        } catch (e) {
+          console.error(`Failed to load ${name} from branch:`, e);
+          // Fall back to local
+          console.log(`⚠️ Falling back to local for ${name}`);
+          if (localImports[name]) {
+            localImports[name]();
+          }
+        }
       }
-
-      // Create new element with same attributes
-      const newEl = document.createElement(newTagName);
-      Array.from(el.attributes).forEach(attr => {
-        newEl.setAttribute(attr.name, attr.value);
-      });
-
-      // Replace in DOM
-      el.parentNode.replaceChild(newEl, el);
-
-      // Initialize Alpine on the new element
-      if (window.Alpine) {
-        Alpine.initTree(newEl);
+    } else {
+      console.log('📦 Loading components locally');
+      for (const name of componentNames) {
+        if (localImports[name]) {
+          localImports[name]();
+        }
       }
-
-      console.log(`✅ Swapped ${tagName} -> ${newTagName}`);
-    });
-  },
-
-  // Swap back to default (unsuffixed) components
-  swapToDefault() {
-    const alpElements = Array.from(document.querySelectorAll('*'))
-      .filter(el => {
-        const tag = el.tagName.toLowerCase();
-        return tag.startsWith('alp-') && tag.split('-').length > 2;
-      });
-
-    console.log(`🔄 Swapping ${alpElements.length} elements back to default`);
-
-    alpElements.forEach(el => {
-      const tagName = el.tagName.toLowerCase();
-      // Extract base component name (e.g., 'alp-text-abc123' -> 'alp-text')
-      const parts = tagName.split('-');
-      const newTagName = `${parts[0]}-${parts[1]}`;
-
-      // Create new element with same attributes
-      const newEl = document.createElement(newTagName);
-      Array.from(el.attributes).forEach(attr => {
-        newEl.setAttribute(attr.name, attr.value);
-      });
-
-      // Replace in DOM
-      el.parentNode.replaceChild(newEl, el);
-
-      // Initialize Alpine on the new element
-      if (window.Alpine) {
-        Alpine.initTree(newEl);
-      }
-
-      console.log(`✅ Swapped ${tagName} -> ${newTagName}`);
-    });
-
-    activeBranchSuffix = null;
-  },
-
-  // Get list of component names defined for a branch suffix
-  getBranchComponents(suffix) {
-    return branchComponents[suffix] || [];
+    }
   }
 };
