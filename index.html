@@ -47,9 +47,12 @@
 
     // Load components - from branch source if configured, else locally
     await alp.loadComponents(componentNames, localImports);
-  </script>
 
-  <script defer src="https://unpkg.com/alpinejs"></script>
+    // Load Alpine.js only after components are defined
+    const alpine = document.createElement('script');
+    alpine.src = 'https://unpkg.com/alpinejs';
+    document.body.appendChild(alpine);
+  </script>
 
 </body>
 </html>
