@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alp - Minimal Example</title>
+
+  <!-- Just source the framework -->
+  <script src="./alp.js"></script>
+
+  <!-- Define your component -->
+  <script>
+    window.addEventListener('load', () => {
+      alp.define("hello",
+        x => `
+          <div class="card bg-primary text-primary-content">
+            <div class="card-body">
+              <h2 class="card-title">Hello, Alp!</h2>
+              <input
+                x-model="name"
+                @input="save({name})"
+                class="input input-bordered w-full"
+                placeholder="Enter your name">
+              <p class="text-xl mt-4" x-show="name">
+                Hello, <strong x-text="name"></strong>! 👋
+              </p>
+            </div>
+          </div>
+        `,
+        {
+          name: '',
+          async nav() {
+            const data = await this.load();
+            this.name = data?.name || '';
+          }
+        }
+      );
+    });
+  </script>
+</head>
+<body class="min-h-screen bg-base-100 flex items-center justify-center p-4">
+
+  <div class="w-full max-w-md">
+    <alp-hello></alp-hello>
+  </div>
+
+  <!-- Inspector for debugging -->
+  <alp-inspector class="fixed bottom-4 right-4"></alp-inspector>
+
+</body>
+</html>
