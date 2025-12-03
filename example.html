@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alp Framework - Example</title>
+
+  <!-- That's it! Just source the Alp framework -->
+  <script src="./alp.js"></script>
+
+  <!-- Define your components -->
+  <script>
+    // Wait for Alp to be ready
+    window.addEventListener('load', () => {
+      // Define a simple text component
+      alp.define("text",
+        x => `
+          ${alp.fill('toolbar',
+            '<div class="text-sm font-semibold">Text Editor</div>',
+            alp.fill('pathInput'),
+            alp.fill('deleteButton')
+          )}
+          <textarea
+            x-model="text"
+            @blur="save({text})"
+            class="textarea textarea-bordered w-full h-24"
+            placeholder="Type something..."></textarea>
+        `,
+        {
+          text: '',
+          async nav() {
+            const data = await this.load();
+            if (data && !data.hasOwnProperty('text')) {
+              alert('Path contains incompatible data (expected text property)');
+              this.path = this.defaultPath;
+              return;
+            }
+            this.text = data?.text || '';
+          }
+        }
+      );
+
+      // Define a simple counter component
+      alp.define("counter",
+        x => `
+          <div class="card bg-base-200 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Counter</h2>
+              <div class="text-6xl font-bold text-center my-4" x-text="count"></div>
+              <div class="card-actions justify-center gap-2">
+                ${alp.fill('btn', 'Increment', 'increment()', 'plus', 'btn-primary')}
+                ${alp.fill('btn', 'Decrement', 'decrement()', 'minus', 'btn-secondary')}
+                ${alp.fill('btn', 'Reset', 'reset()', 'arrow-counter-clockwise', 'btn-ghost')}
+              </div>
+            </div>
+          </div>
+        `,
+        {
+          count: 0,
+          async nav() {
+            const data = await this.load();
+            this.count = data?.count || 0;
+          },
+          increment() {
+            this.count++;
+            this.save({ count: this.count });
+          },
+          decrement() {
+            this.count--;
+            this.save({ count: this.count });
+          },
+          reset() {
+            this.count = 0;
+            this.save({ count: this.count });
+          }
+        }
+      );
+
+      // Define a todo list component
+      alp.define("todos",
+        x => `
+          <div class="card bg-base-200 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Todo List</h2>
+
+              <div class="flex gap-2">
+                <input
+                  x-model="newTodo"
+                  @keydown.enter="addTodo()"
+                  class="input input-bordered flex-1"
+                  placeholder="Add a todo...">
+                ${alp.fill('btn', 'Add', 'addTodo()', 'plus', 'btn-primary')}
+              </div>
+
+              <div class="space-y-2 mt-4">
+                <template x-for="(todo, idx) in todos" :key="idx">
+                  <div class="flex items-center gap-2 p-2 bg-base-300 rounded">
+                    <input
+                      type="checkbox"
+                      :checked="todo.done"
+                      @change="toggleTodo(idx)"
+                      class="checkbox checkbox-sm">
+                    <span
+                      :class="todo.done ? 'line-through opacity-50' : ''"
+                      x-text="todo.text"
+                      class="flex-1"></span>
+                    <button
+                      @click="removeTodo(idx)"
+                      class="btn btn-xs btn-ghost btn-circle">
+                      <i class="ph ph-x"></i>
+                    </button>
+                  </div>
+                </template>
+              </div>
+
+              <div class="text-xs text-base-content/50 mt-2" x-show="todos.length">
+                <span x-text="todos.filter(t => !t.done).length"></span> remaining
+              </div>
+            </div>
+          </div>
+        `,
+        {
+          todos: [],
+          newTodo: '',
+          async nav() {
+            const data = await this.load();
+            this.todos = data?.todos || [];
+          },
+          addTodo() {
+            if (!this.newTodo.trim()) return;
+            this.todos.push({ text: this.newTodo, done: false });
+            this.newTodo = '';
+            this.save({ todos: this.todos });
+          },
+          toggleTodo(idx) {
+            this.todos[idx].done = !this.todos[idx].done;
+            this.save({ todos: this.todos });
+          },
+          removeTodo(idx) {
+            this.todos.splice(idx, 1);
+            this.save({ todos: this.todos });
+          }
+        }
+      );
+    });
+  </script>
+</head>
+<body class="min-h-screen bg-base-100">
+
+  <div class="container mx-auto p-4">
+    <h1 class="text-4xl font-bold mb-8 text-center">
+      <i class="ph ph-mountains text-primary"></i>
+      Alp Framework Demo
+    </h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Text editor -->
+      <div>
+        <alp-text></alp-text>
+      </div>
+
+      <!-- Counter -->
+      <div>
+        <alp-counter></alp-counter>
+      </div>
+
+      <!-- Todo list -->
+      <div class="md:col-span-2">
+        <alp-todos></alp-todos>
+      </div>
+    </div>
+
+    <div class="mt-8 p-4 bg-base-200 rounded-lg">
+      <h3 class="font-semibold mb-2">💡 Tips:</h3>
+      <ul class="list-disc list-inside space-y-1 text-sm">
+        <li>All data is automatically saved to IndexedDB</li>
+        <li>Refresh the page - your data persists!</li>
+        <li>Click the gear icon (bottom-right) to inspect all stored data</li>
+        <li>Try changing the "path" in the text editor to create multiple instances</li>
+        <li>Open the browser console to see save/load operations</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Built-in developer tools -->
+  <alp-inspector class="fixed bottom-4 right-4"></alp-inspector>
+
+</body>
+</html>
