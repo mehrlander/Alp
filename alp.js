@@ -20,12 +20,12 @@
 
     const db=new Dexie('AlpDB'); db.version(1).stores({ alp:'name' });
 
-    const components=Object.create(null);
-    const reg=(p,inst)=>((components[p] ||= new Set).add(inst), inst);
-    const unreg=(p,inst)=>{ const s=components[p]; if(!s) return; s.delete(inst); if(!s.size) delete components[p]; };
+    const pathRegistry=Object.create(null);
+    const reg=(p,x)=>((pathRegistry[p] ||= new Set).add(x), x);
+    const unreg=(p,x)=>{ const s=pathRegistry[p]; if(!s) return; s.delete(x); if(!s.size) delete pathRegistry[p]; };
     const notify=(p, data, del=0)=>{
-      const s=components[p]; if(!s) return;
-      s.forEach(inst=> del ? (inst.deletedCallback ? inst.deletedCallback() : inst.nav?.()) : (inst.savedCallback ? inst.savedCallback(data) : inst.nav?.()));
+      const s=pathRegistry[p]; if(!s) return;
+      s.forEach(x=> del ? (x.deletedCallback ? x.deletedCallback() : x.nav?.()) : (x.savedCallback ? x.savedCallback(data) : x.nav?.()));
     };
 
     const load=()=>db.alp.toArray().then(rs=>rs.reduce((m,{name,data})=>{
@@ -62,15 +62,16 @@
       tt:({target,props})=>new Promise(r=>{ const t=new Tabulator(target,props); t.on('tableBuilt',()=>r(t)); })
     };
 
-    class AlpElt extends HTMLElement{
+    class Alp extends HTMLElement{
       connectedCallback(){
         const render=()=>{ this.innerHTML=this.tpl(); Alpine.initTree(this); };
         window.Alpine ? render() : addEventListener('alpine:init',render,{once:1});
       }
       tpl(){ return ''; }
       disconnectedCallback(){
-        const inst=this.__alpInst;
-        inst && unreg(inst._path, inst);
+        const d=this.data;
+        d && unreg(d._path, d);
+        this.data = null;
       }
     }
 
@@ -78,7 +79,7 @@
 
     const mk=(tagEnd, initState={})=>{
       const defaultPath=`alp.${tagEnd}`;
-      const inst={
+      return {
         ...initState,
         tagEnd,
         el:null,
@@ -105,16 +106,15 @@
           const p = this.host?.getAttribute('path');
           if(p){ this.path=p; this._path=p; }
           reg(this._path, this);
-          this.host && (this.host.__alpInst = this);
+          this.host && (this.host.data = this);
           return this.nav?.();
         }
       };
-      return inst;
     };
 
     const define=(tagEnd, tplFn, initState={})=>{
       _defs[tagEnd] = { initState, tplFn };
-      class C extends AlpElt{
+      class C extends Alp{
         tpl(){ return `<div x-data="alp.mk('${tagEnd}')" x-init="init($el)">${tplFn('path')}</div>`; }
       }
       customElements.define(`alp-${tagEnd}`, C);
@@ -122,7 +122,7 @@
 
     const alp = window.alp = {
       db,
-      components,
+      pathRegistry,
       consoleLogs,
       load,
       loadRecord,
