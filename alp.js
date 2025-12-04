@@ -6,6 +6,19 @@
 
   css('https://cdn.jsdelivr.net/combine/npm/daisyui@5/themes.css,npm/daisyui@5,npm/tabulator-tables/dist/css/tabulator_simple.min.css');
 
+  // --- alp proxy queue: call alp.* anytime; it replays after init() + Alpine is ready ---
+  const _alpQ=window.alp?.__q ? window.alp : (()=>{
+    let impl,ready=0,q=[];
+    const go=()=>{ if(!(ready&3)||!impl) return; for(;q.length;){ const [k,a]=q.shift(); k in impl ? impl[k](...a) : impl(...a); } };
+    document.addEventListener('alpine:init',()=>{ready|=2;go()},{once:1});
+    return new Proxy(()=>{},{
+      get:(_,k)=>k==='__q'?1:k==='bind'?o=>(impl=o,ready|=1,go(),o)
+        : (...a)=> (ready&3)&&impl ? impl[k](...a) : q.push([k,a]),
+      apply:(_,__,a)=> (ready&3)&&impl ? impl(...a) : q.push([null,a])
+    });
+  })();
+  window.alp=_alpQ;
+
   const init=()=>{
     const consoleLogs=[],MAX=100;
     const orig=Object.fromEntries(['log','warn','error','info'].map(k=>[k,console[k].bind(console)]));
@@ -65,7 +78,7 @@
     class Alp extends HTMLElement{
       connectedCallback(){
         const render=()=>{ this.innerHTML=this.tpl(); Alpine.initTree(this); };
-        window.Alpine ? render() : addEventListener('alpine:init',render,{once:1});
+        window.Alpine ? render() : document.addEventListener('alpine:init',render,{once:1});
       }
       tpl(){ return ''; }
       disconnectedCallback(){
@@ -120,7 +133,8 @@
       customElements.define(`alp-${tagEnd}`, C);
     };
 
-    const alp = window.alp = {
+    // bind real implementation into the proxy (keeping window.alp stable)
+    const impl={
       db,
       pathRegistry,
       consoleLogs,
@@ -134,6 +148,8 @@
       mk:(tagEnd)=>mk(tagEnd, _defs[tagEnd]?.initState || {}),
       define
     };
+    window.alp.bind(impl);
+    const alp=window.alp;
 
     alp.define("inspector", _ => `
       <button @click="open()" class="text-primary">
