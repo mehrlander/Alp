@@ -214,6 +214,12 @@
       }
     });
 
+    // auto-mount inspector (unless you already placed one)
+    if(!document.querySelector('alp-inspector')){
+      const w=document.body.appendChild(document.createElement('alp-inspector'));
+      w.className='fixed bottom-4 right-4 z-50';
+    }
+
     console.log('✅ Alp Framework initialized');
   };
 
