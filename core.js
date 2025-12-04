@@ -144,9 +144,11 @@ export const alp = {
   ...core,
   fill: (k, ...a) => {
     const f = fills[k];
-    if (!f) throw Error(`Unknown fill: ${k}`);
-    return f(...a);
-  },
+    if (f) return f(...a);
+    const [attrs = {}, inner = ''] = a;
+    const attrStr = Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ');
+    return `<${k}${attrStr ? ' ' + attrStr : ''}>${inner}</${k}>`;
+  }
   install: (k, o) => {
     const f = installers[k];
     if (!f) throw Error(`Unknown installer: ${k}`);
