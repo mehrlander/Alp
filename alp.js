@@ -149,8 +149,8 @@
         <i class="ph ph-gear-six text-4xl"></i>
       </button>
 
-      <div x-show="show" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="close()" @keydown.escape.window="close()">
-        <div class="bg-base-100 w-full max-w-[95%] h-[80vh] shadow-lg flex flex-col relative overflow-hidden">
+      <dialog class="modal" @close="drawer=0">
+        <div class="modal-box w-full max-w-[95%] h-[80vh] p-0 shadow-lg flex flex-col relative overflow-hidden rounded-lg">
           <div x-show="drawer" class="absolute inset-0 bg-black/30 z-20" @click="drawer=0"></div>
 
           <div class="flex-1 overflow-hidden relative z-10">
@@ -167,7 +167,6 @@
                 <div class="flex gap-0.5 whitespace-nowrap">
                   <template x-for="it in pages" :key="it.key">
                     <button class="btn btn-xs" @click="goPage(it.key)" :class="page===it.key?'btn-primary':'btn'">
-                      <i class="ph ph-database"></i>
                       <span x-text="it.sig"></span>
                     </button>
                   </template>
@@ -197,11 +196,10 @@
             </ul>
           </aside>
         </div>
-      </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+      </dialog>
     `,{
-      show:0, drawer:0, mode:'alp', store:'alp', stores:[], storeMap:{}, page:'', pages:[], jse:null,
-
-      close(){ this.show=0; this.drawer=0; },
+      drawer:0, mode:'alp', store:'alp', stores:[], storeMap:{}, page:'', pages:[], jse:null,
 
       async refresh(){
         this.storeMap = await alp.load();
@@ -216,7 +214,8 @@
       },
 
       async open(){
-        this.show = 1; this.drawer = 0;
+        this.find('dialog').showModal();
+        this.drawer = 0;
         await Alpine.nextTick();
         this.jse ||= await alp.install('jse',{
           target:this.find('[name="jse"]'),
