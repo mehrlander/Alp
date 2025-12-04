@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alp Framework Example</title>
+</head>
+<body class="min-h-screen bg-base-200 p-8">
+
+  <div class="max-w-2xl mx-auto space-y-6">
+    <h1 class="text-3xl font-bold text-primary">Alp Framework Demo</h1>
+    <p class="text-base-content/70">A simple notes app demonstrating alp.define() with persistent storage.</p>
+
+    <!-- Use the custom component -->
+    <alp-notes></alp-notes>
+
+    <!-- Multiple instances with different paths -->
+    <alp-notes path="notes.work"></alp-notes>
+  </div>
+
+  <!-- Load Alp from jsdelivr -->
+  <script src="https://cdn.jsdelivr.net/gh/mehrlander/Alp@main/alp.js"></script>
+
+  <!-- Define a custom component - can call immediately thanks to proxy queue -->
+  <script>
+    alp.define('notes', p => `
+      ${alp.fill('toolbar',
+        `<span class="font-semibold">Notes</span>`,
+        alp.fill('saveIndicator'),
+        alp.fill('pathInput'),
+        alp.fill('deleteButton')
+      )}
+
+      <textarea
+        x-model="text"
+        @input.debounce.500ms="saveText()"
+        class="textarea textarea-bordered w-full h-40"
+        placeholder="Type your notes here..."></textarea>
+
+      <div class="text-xs text-base-content/50 mt-2">
+        Auto-saves to IndexedDB at path: <code x-text="_path"></code>
+      </div>
+    `, {
+      text: '',
+      saving: false,
+
+      async nav() {
+        const data = await this.load();
+        this.text = data?.text || '';
+      },
+
+      async saveText() {
+        this.saving = true;
+        await this.save({ text: this.text });
+        this.saving = false;
+      }
+    });
+  </script>
+
+</body>
+</html>
