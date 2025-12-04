@@ -6,18 +6,18 @@
 
   css('https://cdn.jsdelivr.net/combine/npm/daisyui@5/themes.css,npm/daisyui@5,npm/tabulator-tables/dist/css/tabulator_simple.min.css');
 
-  // --- alp proxy queue: call alp.* anytime; it replays after init() + Alpine is ready ---
-  const _alpQ=window.alp?.__q ? window.alp : (()=>{
-    let impl,ready=0,q=[];
-    const go=()=>{ if(!(ready&3)||!impl) return; for(;q.length;){ const [k,a]=q.shift(); k in impl ? impl[k](...a) : impl(...a); } };
-    document.addEventListener('alpine:init',()=>{ready|=2;go()},{once:1});
-    return new Proxy(()=>{},{
-      get:(_,k)=>k==='__q'?1:k==='bind'?o=>(impl=o,ready|=1,go(),o)
-        : (...a)=> (ready&3)&&impl ? impl[k](...a) : q.push([k,a]),
-      apply:(_,__,a)=> (ready&3)&&impl ? impl(...a) : q.push([null,a])
-    });
-  })();
-  window.alp=_alpQ;
+  window.alp = new Proxy(()=>{},(()=>{
+    let t,ready=0,q=[];
+    const go=()=>{ if(!(ready&3)||!t) return; for(;q.length;){ const [k,a]=q.shift(); (k?t[k]:t)(...a); } };
+    document.addEventListener('alpine:init',()=>{ ready|=2; go(); },{once:1});
+    return {
+      get:(_,k)=>k==='__q'?1
+        : k==='bind'?o=>(t=o,ready|=1,go(),o)
+        : (ready&3)&&t&&(k in t)&&typeof t[k]!=='function'?t[k]
+        : (...a)=>(ready&3)&&t?t[k](...a):q.push([k,a]),
+      apply:(_,__,a)=>(ready&3)&&t?t(...a):q.push([null,a])
+    };
+  })());
 
   const init=()=>{
     const consoleLogs=[],MAX=100;
@@ -88,7 +88,7 @@
       }
     }
 
-    const _defs=Object.create(null);
+    const defs=Object.create(null);
 
     const mk=(tagEnd, initState={})=>{
       const defaultPath=`alp.${tagEnd}`;
@@ -113,7 +113,7 @@
           reg(this._path, this);
           return this.nav?.();
         },
-        init(el){
+        mount(el){
           this.el = el;
           this.host = el.closest(`alp-${tagEnd}`);
           const p = this.host?.getAttribute('path');
@@ -126,29 +126,22 @@
     };
 
     const define=(tagEnd, tplFn, initState={})=>{
-      _defs[tagEnd] = { initState, tplFn };
+      defs[tagEnd] = { initState, tplFn };
       class C extends Alp{
-        tpl(){ return `<div x-data="alp.mk('${tagEnd}')" x-init="init($el)">${tplFn('path')}</div>`; }
+        tpl(){ return `<div x-data="alp.mk('${tagEnd}')" x-init="mount($el)">${tplFn('path')}</div>`; }
       }
       customElements.define(`alp-${tagEnd}`, C);
     };
 
-    // bind real implementation into the proxy (keeping window.alp stable)
-    const impl={
-      db,
-      pathRegistry,
-      consoleLogs,
-      load,
-      loadRecord,
-      saveRecord,
-      deleteRecord,
-      safeStore,
+    const core={db,pathRegistry,consoleLogs,load,loadRecord,saveRecord,deleteRecord,safeStore,define};
+    const api={
+      ...core,
       fill:(k,...a)=>{ const f=fills[k]; if(!f) throw Error(`Unknown fill: ${k}`); return f(...a); },
       install:(k,o)=>{ const f=installers[k]; if(!f) throw Error(`Unknown installer: ${k}`); return f(o); },
-      mk:(tagEnd)=>mk(tagEnd, _defs[tagEnd]?.initState || {}),
-      define
+      mk:(tagEnd)=>mk(tagEnd, defs[tagEnd]?.initState || {})
     };
-    window.alp.bind(impl);
+
+    window.alp.bind(api);
     const alp=window.alp;
 
     alp.define("inspector", _ => `
@@ -156,69 +149,112 @@
         <i class="ph ph-gear-six text-4xl"></i>
       </button>
 
-      <div x-show="show" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="show=0">
-        <div class="bg-base-100 w-full max-w-[95%] h-[80vh] shadow-lg flex flex-col">
-          <div name="jse" class="flex-1 overflow-hidden"></div>
+      <div x-show="show" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="close()" @keydown.escape.window="close()">
+        <div class="bg-base-100 w-full max-w-[95%] h-[80vh] shadow-lg flex flex-col relative overflow-hidden">
+          <div x-show="drawer" class="absolute inset-0 bg-black/30 z-20" @click="drawer=0"></div>
 
-          <div class="flex bg-base-300 text-xs flex-shrink-0 p-2 justify-between items-center gap-2">
-            <select class="select select-xs w-auto min-w-0" @change="goStore($event.target.value)" x-model="store">
-              <template x-for="s in stores"><option :value="s.key" x-text="s.key"></option></template>
-            </select>
+          <div class="flex-1 overflow-hidden relative z-10">
+            <div name="jse" class="absolute inset-0"></div>
+          </div>
 
-            <div class="flex-1 overflow-x-auto">
-              <div class="flex gap-0.5 whitespace-nowrap">
-                <template x-for="it in pages" :key="it.key">
-                  <button class="btn btn-xs" @click="goPage(it.key)" :class="page===it.key?'btn-primary':'btn'">
-                    <i class="ph ph-database"></i>
-                    <span x-text="it.sig"></span>
-                  </button>
-                </template>
+          <div class="flex bg-base-300 text-xs flex-shrink-0 p-2 items-center gap-2 relative z-10">
+            <div class="flex items-center gap-2 flex-1 min-w-0" x-show="mode==='alp'">
+              <select class="select select-xs w-auto min-w-0" @change="goStore($event.target.value)" x-model="store">
+                <template x-for="s in stores"><option :value="s.key" x-text="s.key"></option></template>
+              </select>
+
+              <div class="flex-1 overflow-x-auto min-w-0">
+                <div class="flex gap-0.5 whitespace-nowrap">
+                  <template x-for="it in pages" :key="it.key">
+                    <button class="btn btn-xs" @click="goPage(it.key)" :class="page===it.key?'btn-primary':'btn'">
+                      <i class="ph ph-database"></i>
+                      <span x-text="it.sig"></span>
+                    </button>
+                  </template>
+                </div>
               </div>
+
+              <button class="btn btn-xs btn-error btn-outline" @click="clear()">Clear</button>
             </div>
 
-            <button class="btn btn-xs btn-error btn-outline" @click="clear()">Clear</button>
+            <div class="flex-1" x-show="mode!=='alp'"></div>
+
+            <button class="btn btn-xs btn-ghost btn-circle" @click="drawer=!drawer">
+              <i class="ph ph-list"></i>
+            </button>
           </div>
+
+          <aside :class="drawer ? 'translate-x-0' : 'translate-x-full'"
+                 class="absolute inset-y-0 right-0 w-72 bg-base-100 border-l border-base-300 z-30 flex flex-col transition-transform duration-200">
+            <div class="p-3 border-b border-base-300 flex items-center gap-2">
+              <span class="font-semibold text-primary/80 flex-1">View</span>
+              <button class="btn btn-sm btn-ghost btn-circle" @click="drawer=0"><i class="ph ph-x"></i></button>
+            </div>
+
+            <ul class="menu p-2 flex-1 overflow-y-auto">
+              <li><a @click="setMode('alp')" :class="mode==='alp'&&'active'">Alp</a></li>
+              <li><a @click="setMode('logs')" :class="mode==='logs'&&'active'">Console Logs</a></li>
+            </ul>
+          </aside>
         </div>
       </div>
     `,{
-      show:0, store:'alp', stores:[], storeMap:{}, page:'', pages:[], jse:null,
+      show:0, drawer:0, mode:'alp', store:'alp', stores:[], storeMap:{}, page:'', pages:[], jse:null,
+
+      close(){ this.show=0; this.drawer=0; },
+
       async refresh(){
         this.storeMap = await alp.load();
         this.stores = Object.keys(this.storeMap).map(key=>({key}));
         await this.goStore(alp.safeStore(this.store, this.storeMap));
       },
+
       async goStore(storeName){
         this.store = storeName;
         this.pages = this.storeMap[this.store] || [];
         this.pages.length ? await this.goPage(this.pages[0].key) : this.jse?.set({json:{}});
       },
+
       async open(){
-        this.show = 1;
+        this.show = 1; this.drawer = 0;
         await Alpine.nextTick();
         this.jse ||= await alp.install('jse',{
           target:this.find('[name="jse"]'),
           props:{ mode:"tree", content:{json:{}}, onChange:c=>this.handleChange(c) }
         });
         await this.refresh();
+        await this.setMode(this.mode);
       },
-      async handleChange({json}){ await alp.saveRecord(this.page, json); },
+
+      async setMode(m){
+        this.mode=m; this.drawer=0;
+        await Alpine.nextTick();
+        if(m==='logs') return this.jse?.set({json: alp.consoleLogs});
+        if(m==='alp'){
+          if(!this.page){
+            const first=this.storeMap?.[alp.safeStore(this.store,this.storeMap)]?.[0]?.key;
+            this.page=first||'';
+          }
+          return this.page ? this.goPage(this.page) : this.jse?.set({json:{}});
+        }
+      },
+
+      async handleChange({json}){ if(this.mode==='alp') await alp.saveRecord(this.page, json); },
+
       async goPage(k){
         this.page = k;
         const data = await alp.loadRecord(k);
         console.log('goPage', k, data);
         await this.jse.set({ json: data || {} });
       },
+
       async clear(){
         await alp.deleteRecord(this.page);
         await this.refresh();
       }
     });
 
-    // auto-mount inspector (unless you already placed one)
-    if(!document.querySelector('alp-inspector')){
-      const w=document.body.appendChild(document.createElement('alp-inspector'));
-      w.className='fixed bottom-4 right-4 z-50';
-    }
+    document.body.appendChild(el('alp-inspector',{className:'fixed bottom-4 right-4 z-50'}));
 
     console.log('✅ Alp Framework initialized');
   };
