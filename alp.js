@@ -43,24 +43,38 @@
   };
 
   // Boot sequence
-  const boot = () =>
-    js('https://cdn.jsdelivr.net/combine/npm/@tailwindcss/browser@4,npm/@phosphor-icons/web,npm/dexie@4,npm/tabulator-tables')
-      .then(() => {
-        console.log('📦 Alp deps loaded');
-        return import(`${BASE}core.js`);
-      })
-      .then(({ alp }) => {
-        window.alp.bind(alp);
-        return import(`${BASE}components/index.js`).then(({ components }) => ({ alp, components }));
-      })
-      .then(({ alp, components }) => {
-        return Promise.all([
-          storeSources(alp.db, components),
-          ...components.map(c => import(`${BASE}components/${c}`))
-        ]);
-      })
-      .then(() => js('https://unpkg.com/alpinejs@3'))
-      .then(() => console.log('🎨 Alpine.js loaded'));
+const boot = () =>
+  js('https://cdn.jsdelivr.net/combine/npm/@tailwindcss/browser@4,npm/@phosphor-icons/web,npm/dexie@4,npm/tabulator-tables')
+    .then(() => {
+      console.log('📦 Alp deps loaded');
+      console.log('⏳ Importing core.js...');
+      return import(`${BASE}core.js`);
+    })
+    .then(({ alp }) => {
+      console.log('✅ core.js imported', alp ? '(alp present)' : '(alp missing!)');
+      window.alp.bind(alp);
+      console.log('⏳ Importing components/index.js...');
+      return import(`${BASE}components/index.js`).then(({ components }) => {
+        console.log('✅ components/index.js imported', components);
+        return { alp, components };
+      });
+    })
+    .then(({ alp, components }) => {
+      console.log('⏳ Storing sources & loading components...');
+      return Promise.all([
+        storeSources(alp.db, components),
+        ...components.map(c => {
+          console.log(`⏳ Importing ${c}...`);
+          return import(`${BASE}components/${c}`).then(() => console.log(`✅ ${c} loaded`));
+        })
+      ]);
+    })
+    .then(() => {
+      console.log('⏳ Loading Alpine.js...');
+      return js('https://unpkg.com/alpinejs@3');
+    })
+    .then(() => console.log('🎨 Alpine.js loaded'))
+    .catch(err => console.error('❌ Boot failed:', err));
 
   document.readyState === 'loading'
     ? addEventListener('DOMContentLoaded', boot, { once: 1 })
