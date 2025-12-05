@@ -148,7 +148,7 @@ export const alp = {
     const [attrs = {}, inner = ''] = a;
     const attrStr = Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ');
     return `<${k}${attrStr ? ' ' + attrStr : ''}>${inner}</${k}>`;
-  }
+  },
   install: (k, o) => {
     const f = installers[k];
     if (!f) throw Error(`Unknown installer: ${k}`);
