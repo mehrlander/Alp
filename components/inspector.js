@@ -16,7 +16,7 @@ alp.define('inspector', _ => alp.fill('modal', `
       <div class="flex gap-0.5 whitespace-nowrap">
         <template x-for="r in records" :key="r.key">
           <button class="btn btn-xs" @click="goRecord(r.key)" :class="selected===r.key?'btn-primary':'btn'">
-            <span x-text="r.suffix"></span>
+            <span x-text="r.sig"></span>
           </button>
         </template>
       </div>
