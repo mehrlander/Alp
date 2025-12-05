@@ -8,7 +8,7 @@ export const fills = {
       placeholder="path">`,
   saveIndicator: () => `<span x-show="saving" class="loading loading-spinner loading-xs"></span>`,
   toolbar: (...items) => `<div class="flex gap-2 items-center justify-between mb-2">${items.join('')}</div>`,
-  btn: (label, click, iconClasses = '', btnClasses = '', { mods = [] } = {}) => {
+  btn: ({ mods = [] } = {}, label, click, iconClasses = '', btnClasses = '') => {
     const sizes = ['xs', 'sm', 'md', 'lg', 'xl'];
     const sz = mods.find(m => sizes.includes(m));
     const btnMods = mods.map(m => `btn-${m}`).join(' ');
