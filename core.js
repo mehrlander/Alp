@@ -148,7 +148,7 @@ export const alp = {
     const mods = parts.slice(1);
     
     const f = fills[key];
-    if (f) return f({ mods }, ...a);
+    if (f) return f(mods, ...a);
     
     const [attrs = {}, inner = ''] = a;
     const attrStr = Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ');
