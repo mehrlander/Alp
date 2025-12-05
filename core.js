@@ -143,11 +143,16 @@ const core = { db, pathRegistry, consoleLogs, load, loadRecord, saveRecord, dele
 export const alp = {
   ...core,
   fill: (k, ...a) => {
-    const f = fills[k];
-    if (f) return f(...a);
+    const parts = k.split(':');
+    const key = parts[0];
+    const mods = parts.slice(1);
+    
+    const f = fills[key];
+    if (f) return f(...a, mods);
+    
     const [attrs = {}, inner = ''] = a;
     const attrStr = Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ');
-    return `<${k}${attrStr ? ' ' + attrStr : ''}>${inner}</${k}>`;
+    return `<${key}${attrStr ? ' ' + attrStr : ''}>${inner}</${key}>`;
   },
   install: (k, o) => {
     const f = installers[k];
