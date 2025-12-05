@@ -10,7 +10,7 @@ export const fills = {
   toolbar: (...items) => `<div class="flex gap-2 items-center justify-between mb-2">${items.join('')}</div>`,
   btn: (label, click, icon = '', classes = 'btn-primary') => `
     <button @click="${click}" class="btn ${classes}">
-      ${icon ? `<i class="ph ph-${icon}"></i>` : ''}<span>${label}</span>
+      ${icon ? `<i class="text-lg ph ph-${icon}"></i>` : ''}<span>${label}</span>
     </button>`,
   modal: inner => `
     <dialog class="modal">
