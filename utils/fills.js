@@ -8,11 +8,17 @@ export const fills = {
       placeholder="path">`,
   saveIndicator: () => `<span x-show="saving" class="loading loading-spinner loading-xs"></span>`,
   toolbar: (...items) => `<div class="flex gap-2 items-center justify-between mb-2">${items.join('')}</div>`,
-  btn: (label, click, iconClasses = '', btnClasses = 'btn-primary') => `
-    <button @click="${click}" class="btn ${btnClasses}">
-      ${iconClasses ? `<i class="ph ${iconClasses}"></i>` : ''}
-      ${label ? `<span>${label}</span>` : ''}
-    </button>`,
+  btn: (label, click, iconClasses = '', btnClasses = '', mods = []) => {
+    const sizes = ['xs', 'sm', 'md', 'lg', 'xl'];
+    const sz = mods.find(m => sizes.includes(m));
+    const btnMods = mods.map(m => `btn-${m}`).join(' ');
+    const iconSz = sz ? `text-${sz}` : '';
+    return `
+      <button @click="${click}" class="btn ${btnMods} ${btnClasses}">
+        ${iconClasses ? `<i class="ph ${iconClasses} ${iconSz}"></i>` : ''}
+        ${label ? `<span>${label}</span>` : ''}
+      </button>`;
+  },
   modal: inner => `
     <dialog class="modal">
       <div class="modal-box w-full max-w-[95%] h-[80vh] p-0 shadow-lg flex flex-col overflow-hidden rounded-lg">
