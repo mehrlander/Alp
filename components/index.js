@@ -1,1 +1,1 @@
-export const components = ['inspector.js'];
+export const components = ['inspector.js', 'bill-table.js'];
