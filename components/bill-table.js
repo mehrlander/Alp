@@ -2,29 +2,19 @@
 
 import { alp } from '../core.js';
 
-// Load required dependencies (noUiSlider, Luxon, JSZip)
+// Load required dependencies (Luxon, JSZip)
 const loadDeps = (() => {
   let p = null;
   return () => p ||= Promise.all([
-    import('https://cdn.jsdelivr.net/npm/nouislider/dist/nouislider.min.mjs'),
     import('https://cdn.jsdelivr.net/npm/luxon/+esm'),
     import('https://cdn.jsdelivr.net/npm/jszip/+esm')
-  ]).then(([noUiSlider, luxon, jszip]) => {
-    // Add noUiSlider CSS if not present
-    if (!document.querySelector('link[href*="nouislider"]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://cdn.jsdelivr.net/npm/nouislider/dist/nouislider.min.css';
-      document.head.appendChild(link);
-    }
-    return { noUiSlider: noUiSlider.default, DateTime: luxon.DateTime, JSZip: jszip.default };
-  });
+  ]).then(([luxon, jszip]) => ({ DateTime: luxon.DateTime, JSZip: jszip.default }));
 })();
 
 alp.define('bill-table', _ => `
   <div class="flex flex-col h-full bg-base-100 p-2 gap-2 text-sm">
-    <!-- Kind Filters -->
-    <div class="flex items-center gap-4 text-xs">
+    <!-- Filters Row -->
+    <div class="flex items-center gap-4 text-xs flex-wrap">
       <span class="font-semibold">Show:</span>
       <label class="flex items-center gap-1 cursor-pointer">
         <input type="checkbox" class="checkbox checkbox-xs" x-model="kindFilters.Bills" @change="applyFilters()">
@@ -34,14 +24,7 @@ alp.define('bill-table', _ => `
         <input type="checkbox" class="checkbox checkbox-xs" x-model="kindFilters['Session Laws']" @change="applyFilters()">
         <span>Session Laws</span>
       </label>
-    </div>
-
-    <!-- Date Slider -->
-    <div class="flex items-center gap-2">
-      <div name="slider" class="flex-1 mx-4 [&_.noUi-tooltip]:text-xs [&_.noUi-tooltip]:font-mono"></div>
-      <button class="btn btn-xs btn-warning" @click="trimSlider()">Trim</button>
-      <button class="btn btn-xs" @click="resetSlider()">Reset</button>
-      <label class="flex items-center gap-1 ml-2 text-xs">
+      <label class="flex items-center gap-1 ml-auto">
         Size &gt;
         <input type="number" class="input input-xs w-16" placeholder="KB" x-model.number="sizeFilter" @input="applyFilters()">
       </label>
@@ -66,14 +49,11 @@ alp.define('bill-table', _ => `
 `, {
   // State
   table: null,
-  slider: null,
   deps: null,
   loaded: new Set(),
 
   kindFilters: { Bills: true, 'Session Laws': true },
   sizeFilter: null,
-  dateFilter: null,
-  sliderRange: [null, null],
 
   rowCount: 0,
   downloading: false,
@@ -118,91 +98,22 @@ alp.define('bill-table', _ => `
       this.table.on('dataLoaded', data => this.rowCount = data.length);
     }
 
-    // Initialize slider if not already done
-    if (!this.slider) {
-      const { noUiSlider, DateTime } = this.deps;
-      const sliderEl = this.find('[name="slider"]');
-      const now = DateTime.now();
-      const startOfYear = now.startOf('year').toMillis();
-      const endOfYear = now.endOf('year').toMillis();
-      const ms = 86400000; // 1 day in ms
-
-      this.slider = noUiSlider.create(sliderEl, {
-        start: [startOfYear, endOfYear],
-        connect: true,
-        range: { min: startOfYear, max: endOfYear },
-        step: ms,
-        tooltips: [true, true],
-        format: {
-          to: v => DateTime.fromMillis(+v).toFormat('yyyy-MM-dd'),
-          from: Number
-        }
-      });
-
-      this.slider.on('change', () => {
-        this.dateFilter = this.slider.get();
-        this.applyFilters();
-      });
-    }
-
     // Load persisted data
     const saved = await this.load();
     if (saved?.tableData) {
       this.table.setData(saved.tableData);
       this.loaded = new Set(saved.loaded || []);
-      this.updateSliderFromData();
     }
   },
 
   // Filter logic
   applyFilters() {
-    const { DateTime } = this.deps;
     this.table.setFilter(row => {
-      // Date filter
-      if (this.dateFilter) {
-        const [a, b] = this.dateFilter;
-        if ((a && row.date < a) || (b && row.date > b)) return false;
-      }
       // Size filter
       if (this.sizeFilter && row.size <= this.sizeFilter) return false;
       // Kind filter
       if (!this.kindFilters[row.kind]) return false;
       return true;
-    });
-  },
-
-  // Slider controls
-  trimSlider() {
-    const { DateTime } = this.deps;
-    const [start, end] = this.slider.get().map(v => DateTime.fromFormat(v, 'yyyy-MM-dd').toMillis());
-    this.slider.updateOptions({
-      range: { min: start, max: end },
-      start: [start, end]
-    });
-  },
-
-  resetSlider() {
-    if (this.sliderRange[0]) {
-      this.slider.updateOptions({
-        range: { min: this.sliderRange[0], max: this.sliderRange[1] },
-        start: this.sliderRange
-      });
-      this.dateFilter = null;
-      this.applyFilters();
-    }
-  },
-
-  updateSliderFromData() {
-    const { DateTime } = this.deps;
-    const allData = this.table.getData();
-    if (!allData.length) return;
-
-    const timestamps = allData.map(r => DateTime.fromFormat(r.date, 'yyyy-MM-dd').toMillis());
-    const [min, max] = [Math.min(...timestamps), Math.max(...timestamps)];
-    this.sliderRange = [min, max];
-    this.slider.updateOptions({
-      range: { min, max },
-      start: [min, max]
     });
   },
 
@@ -316,7 +227,6 @@ alp.define('bill-table', _ => `
     }
 
     this.loaded.add(biennium);
-    this.updateSliderFromData();
     await this.persist();
   },
 
@@ -324,7 +234,6 @@ alp.define('bill-table', _ => `
   async addData(data, source = 'external') {
     this.table.addData(data);
     this.loaded.add(source);
-    this.updateSliderFromData();
     await this.persist();
   },
 
@@ -340,7 +249,6 @@ alp.define('bill-table', _ => `
   async clearAll() {
     this.table.setData([]);
     this.loaded.clear();
-    this.dateFilter = null;
     this.sizeFilter = null;
     await this.del();
   },
