@@ -7,7 +7,6 @@
   <script src="alp.js"></script>
   <style>
     html, body { height: 100%; margin: 0; }
-    .biennium-btn.loaded { background: var(--color-primary); color: white; }
   </style>
 </head>
 <body class="bg-base-200 p-4 h-full flex flex-col overflow-hidden">
@@ -20,7 +19,7 @@
         <template x-for="bi in bienniums" :key="bi">
           <button
             @click="loadBiennium(bi)"
-            class="btn btn-xs biennium-btn"
+            class="btn btn-xs"
             :class="loaded.has(bi) ? 'btn-primary' : 'btn-outline'"
             x-text="bi"
             :disabled="loading === bi">
@@ -34,26 +33,8 @@
       <alp-bill-table path="bills.browser" class="h-full block"></alp-bill-table>
     </div>
 
-    <!-- Viewer Panels (optional - for displaying selected bill content) -->
-    <div class="mt-4 flex gap-2 h-64" x-show="showViewers">
-      <div class="flex-1 flex flex-col">
-        <div class="text-xs font-semibold mb-1">XML View</div>
-        <iframe name="xml-viewer" class="flex-1 border rounded bg-white"></iframe>
-      </div>
-      <div class="flex-1 flex flex-col">
-        <div class="text-xs font-semibold mb-1">HTML View</div>
-        <iframe name="htm-viewer" class="flex-1 border rounded bg-white"></iframe>
-      </div>
-    </div>
-
-    <!-- Footer Controls -->
-    <div class="mt-2 flex justify-between items-center text-xs">
-      <label class="flex items-center gap-2 cursor-pointer">
-        <input type="checkbox" class="checkbox checkbox-xs" x-model="showViewers">
-        <span>Show Document Viewers</span>
-      </label>
-      <span class="text-base-content/50" x-text="loading ? 'Loading ' + loading + '...' : ''"></span>
-    </div>
+    <!-- Footer -->
+    <div class="mt-2 text-xs text-base-content/50" x-text="loading ? 'Loading ' + loading + '...' : ''"></div>
   </div>
 
   <script>
@@ -62,11 +43,9 @@
         bienniums: ['2025-26', '2023-24', '2021-22', '2019-20', '2017-18', '2015-16', '2013-14', '2011-12', '2009-10', '2007-08', '2005-06', '2003-04'],
         loaded: new Set(),
         loading: null,
-        showViewers: false,
         billTable: null,
 
         init() {
-          // Wait for component to be ready
           this.$nextTick(() => {
             const el = this.$el.querySelector('alp-bill-table');
             // Poll until component data is available
@@ -74,17 +53,6 @@
               if (el.data) {
                 this.billTable = el.data;
                 this.loaded = this.billTable.loaded;
-
-                // Add row click handler to show in viewers
-                if (this.billTable.table) {
-                  this.billTable.table.on('rowClick', (e, row) => {
-                    const d = row.getData();
-                    if (this.showViewers) {
-                      this.$el.querySelector('[name="xml-viewer"]').src = d.urlXml;
-                      this.$el.querySelector('[name="htm-viewer"]').src = d.urlHtm;
-                    }
-                  });
-                }
                 clearInterval(check);
               }
             }, 100);
