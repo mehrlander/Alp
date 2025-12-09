@@ -31,7 +31,7 @@ alp.define('bill-table', _ => `
     </div>
 
     <!-- Table Container -->
-    <div name="table" class="flex-1 min-h-0"></div>
+    <div name="table"></div>
 
     <!-- Footer Controls -->
     <div class="flex justify-between items-center text-xs">
