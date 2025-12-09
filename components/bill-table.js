@@ -73,23 +73,21 @@ alp.define('bill-table', _ => `
     if (!this.table) {
       this.table = await alp.install('tt', {
         target: this.find('[name="table"]'),
-        props: {
-          layout: 'fitData',
-          height: '300px',
-          columns: [
-            { title: 'Id', field: 'id' },
-            { title: 'Name', field: 'name' },
-            { title: 'File Name', field: 'fileName' },
-            { title: 'Date', field: 'date', sorter: 'datetime', sorterParams: { format: 'yyyy-MM-dd' } },
-            { title: 'Size', field: 'size' },
-            { title: 'Compressed', field: 'compressedSize' },
-            { title: 'Chamber', field: 'chamber' },
-            { title: 'Biennium', field: 'biennium' },
-            { title: 'Kind', field: 'kind' },
-            { title: 'Total $', field: 'totalDollarAmount', formatter: 'money', formatterParams: { thousand: ',', precision: 0 } },
-            { title: 'Description', field: 'description' }
-          ]
-        }
+        layout: 'fitData',
+        height: '300px',
+        columns: [
+          { title: 'Id', field: 'id' },
+          { title: 'Name', field: 'name' },
+          { title: 'File Name', field: 'fileName' },
+          { title: 'Date', field: 'date', sorter: 'datetime', sorterParams: { format: 'yyyy-MM-dd' } },
+          { title: 'Size', field: 'size' },
+          { title: 'Compressed', field: 'compressedSize' },
+          { title: 'Chamber', field: 'chamber' },
+          { title: 'Biennium', field: 'biennium' },
+          { title: 'Kind', field: 'kind' },
+          { title: 'Total $', field: 'totalDollarAmount', formatter: 'money', formatterParams: { thousand: ',', precision: 0 } },
+          { title: 'Description', field: 'description' }
+        ]
       });
 
       this.table.on('dataFiltered', (filters, rows) => this.rowCount = rows.length);
