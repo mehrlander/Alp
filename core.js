@@ -1,7 +1,7 @@
 // core.js - Alp Framework Core Module
 
 import { fills } from './utils/fills.js';
-import { installers } from './utils/installers.js';
+import { kit } from './utils/kit.js';
 
 // Console capture
 const consoleLogs = [];
@@ -160,11 +160,7 @@ export const alp = {
     const attrStr = Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ');
     return `<${key}${attrStr ? ' ' + attrStr : ''}>${inner}</${key}>`;
   },
-  install: (k, o) => {
-    const f = installers[k];
-    if (!f) throw Error(`Unknown installer: ${k}`);
-    return f(o);
-  },
+  kit,
   mk: (tagEnd) => mk(tagEnd, defs[tagEnd]?.initState || {})
 };
 

@@ -47,7 +47,7 @@ alp.define('inspector', _ => alp.fill('modal', `
   async open() {
     this.find('dialog').showModal();
     await Alpine.nextTick();
-    this.jse ||= await alp.install('jse', {
+    this.jse ||= await alp.kit.jse({
       target: this.find('[name="jse"]'),
       props: { mode: 'tree', content: { json: {} }, onChange: c => this.handleChange(c) }
     });

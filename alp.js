@@ -29,7 +29,7 @@
   })());
 
   // Source storage
-  const coreSrc = ['alp.js', 'core.js', 'utils/fills.js', 'utils/installers.js'];
+  const coreSrc = ['alp.js', 'core.js', 'utils/fills.js', 'utils/kit.js'];
   const storeSources = async (db, componentFiles) => {
     const ns = 'alp-src';
     const all = [...coreSrc, ...componentFiles.map(c => `components/${c}`)];

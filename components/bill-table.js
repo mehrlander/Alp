@@ -71,7 +71,7 @@ alp.define('bill-table', _ => `
 
     // Initialize table if not already done
     if (!this.table) {
-      this.table = await alp.install('tt', {
+      this.table = await alp.kit.tt({
         target: this.find('[name="table"]'),
         layout: 'fitData',
         height: '300px',
