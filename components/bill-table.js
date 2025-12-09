@@ -76,7 +76,9 @@ alp.define('bill-table', _ => `
         layout: 'fitData',
         height: '300px',
         columns: [
-          { title: 'Id', field: 'id' },
+          { title: 'Doc Id', field: 'docId' },
+          { title: 'Bill Id', field: 'billId' },
+          { title: 'Bill No', field: 'billNo' },
           { title: 'Name', field: 'name' },
           { title: 'File Name', field: 'fileName' },
           { title: 'Date', field: 'date', sorter: 'datetime', sorterParams: { format: 'yyyy-MM-dd' } },
@@ -148,19 +150,19 @@ alp.define('bill-table', _ => `
       const anchor = temp.querySelector('a');
       const href = anchor?.getAttribute('href') || '';
       const urlXml = new URL(href, 'https://lawfilesext.leg.wa.gov/').href;
-      const urlHtm = urlXml.replace(/\/Xml\//g, '/Htm/').replace(/\.xml$/, '.htm');
 
+      const billNo = name.slice(0, 4);
       return {
-        id: `${biennium}_${type}_${name}`,
+        docId: `${biennium}_${type}_${name}`,
+        billId: `${biennium}_${billNo}`,
+        billNo,
         date: DateTime.fromFormat(match[1], 'M/d/yyyy').toFormat('yyyy-MM-dd'),
         size: Math.round(parseInt(match[2].replace(/,/g, '')) / 1024) || 0,
         compressedSize: null,
         name,
         fileName,
         urlXml,
-        urlHtm,
         chamber,
-        billNumber: fullFileName.slice(0, 4),
         biennium,
         kind: type,
         totalDollarAmount: null,
@@ -175,7 +177,7 @@ alp.define('bill-table', _ => `
     data.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     data.forEach(item => {
-      const id = item.billNumber;
+      const id = item.billNo;
       if (!map.has(id)) {
         map.set(id, { ...item, _children: [] });
       } else {
@@ -281,9 +283,11 @@ alp.define('bill-table', _ => `
         this.downloadText = `Downloading ${i + 1}/${rows.length}`;
 
         try {
+          // Derive urlHtm from urlXml by replacing xml with htm
+          const urlHtm = d.urlXml.replace(/xml/gi, 'htm');
           const [xmlBlob, htmBlob] = await Promise.all([
             fetch(d.urlXml).then(r => r.blob()),
-            fetch(d.urlHtm).then(r => r.blob())
+            fetch(urlHtm).then(r => r.blob())
           ]);
           zip.file(`${d.biennium}/${d.kind}/${d.chamber}/${d.name}.xml`, xmlBlob);
           zip.file(`${d.biennium}/${d.kind}/${d.chamber}/${d.name}.htm`, htmBlob);
