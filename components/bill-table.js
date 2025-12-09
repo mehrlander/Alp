@@ -75,7 +75,7 @@ alp.define('bill-table', _ => `
         target: this.find('[name="table"]'),
         props: {
           layout: 'fitData',
-          height: '500',
+          height: '500px',
           dataTree: true,
           dataTreeStartExpanded: false,
           columns: [
