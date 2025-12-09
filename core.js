@@ -40,6 +40,11 @@ const notify = (p, data, del = 0) => {
     : (x.savedCallback ? x.savedCallback(data) : x.nav?.())
   );
 };
+const ping = (p, occasion, state) => {
+  const s = pathRegistry[p];
+  if (!s) return;
+  s.forEach(x => x.onPing?.(occasion, state));
+};
 
 // Data operations
 const load = () => db.alp.toArray().then(rs => rs.reduce((m, { name, data }) => {
@@ -100,6 +105,7 @@ const mk = (tagEnd, initState = {}) => {
     save(d) { return saveRecord(this._path, d); },
     load() { return loadRecord(this._path); },
     del() { return deleteRecord(this._path); },
+    ping(occasion) { return ping(this._path, occasion, this); },
 
     usePath(p) {
       p = (p ?? '').trim() || this.defaultPath;
@@ -137,7 +143,7 @@ const define = (tagEnd, tplFn, initState = {}) => {
 };
 
 // Core API
-const core = { db, pathRegistry, consoleLogs, load, loadRecord, saveRecord, deleteRecord, safeStore, define };
+const core = { db, pathRegistry, consoleLogs, load, loadRecord, saveRecord, deleteRecord, safeStore, define, ping };
 
 // Public API
 export const alp = {
