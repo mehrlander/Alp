@@ -5,8 +5,8 @@ alp.define('inspector', _ => alp.fill('modal', `
     <div name="jse" class="absolute inset-0"></div>
   </div>
   <div class="flex bg-base-300 text-xs flex-shrink-0 p-2 items-center gap-2">
-    <select class="select select-xs w-auto min-w-0" @change="goNs($event.target.value)" x-model="ns">
-      <template x-for="n in namespaces"><option :value="n" x-text="n"></option></template>
+    <select class="select select-xs w-auto min-w-0" @change="goNs($event.target.value)">
+      <template x-for="n in namespaces"><option :value="n" :selected="n === ns" x-text="n"></option></template>
     </select>
     <div class="flex-1 overflow-x-auto min-w-0">
       <div class="flex gap-0.5 whitespace-nowrap">
@@ -29,13 +29,12 @@ alp.define('inspector', _ => alp.fill('modal', `
   async refresh() {
     this.catalog = await alp.load();
     this.namespaces = Object.keys(this.catalog);
-    await Alpine.nextTick();
-    await this.goNs(this.catalog[this.ns] ? this.ns : (this.namespaces[0] || 'alp'));
+    const target = this.catalog[this.ns] ? this.ns : (this.namespaces[0] || 'alp');
+    if (target !== this.ns || !this.records.length) await this.goNs(target);
   },
   async goNs(n) {
     this.ns = n;
     this.records = this.catalog[this.ns] || [];
-    await Alpine.nextTick();
     this.records.length ? await this.goRecord(this.records[0].key) : this.jse?.set({ json: {} });
   },
   async open() {
