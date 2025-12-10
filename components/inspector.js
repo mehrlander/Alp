@@ -1,6 +1,8 @@
 // components/inspector.js - Alp Inspector Component
 import { alp } from '../core.js';
-alp.define('inspector', _ => alp.fill('modal', `
+const { modal } = alp.fills;
+
+alp.define('inspector', _ => modal(`
   <div class="flex-1 overflow-hidden relative">
     <div name="jse" class="absolute inset-0"></div>
   </div>
@@ -59,6 +61,7 @@ alp.define('inspector', _ => alp.fill('modal', `
     await this.refresh();
   }
 });
+
 // Auto-mount
 const el = (t, a) => Object.assign(document.createElement(t), a);
 const wrap = el('div', { className: 'fixed bottom-4 right-4 z-50' });
