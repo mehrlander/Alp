@@ -148,18 +148,7 @@ const core = { db, pathRegistry, consoleLogs, load, loadRecord, saveRecord, dele
 // Public API
 export const alp = {
   ...core,
-  fill: (k, ...a) => {
-    const parts = k.split(':');
-    const key = parts[0];
-    const mods = parts.slice(1);
-    
-    const f = fills[key];
-    if (f) return f(mods, ...a);
-    
-    const [attrs = {}, inner = ''] = a;
-    const attrStr = Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ');
-    return `<${key}${attrStr ? ' ' + attrStr : ''}>${inner}</${key}>`;
-  },
+  fills,
   kit,
   mk: (tagEnd) => mk(tagEnd, defs[tagEnd]?.initState || {})
 };
