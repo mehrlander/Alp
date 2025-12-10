@@ -41,7 +41,8 @@
   // Create proxies
   const alpineReady = go => document.addEventListener('alpine:init', go, { once: 1 });
   const kit = qProxy({ onReady: alpineReady, nested: true });
-  window.alp = qProxy({ onReady: alpineReady, props: { kit } });
+  const fills = qProxy({ onReady: alpineReady });
+  window.alp = qProxy({ onReady: alpineReady, props: { kit, fills } });
 
   // Source storage
   const coreSrc = ['alp.js', 'core.js', 'utils/fills.js', 'utils/kit.js'];
@@ -69,6 +70,7 @@
         console.log('✅ core.js imported', alp ? '(alp present)' : '(alp missing!)');
         window.alp.bind(alp);
         window.alp.kit.bind(alp.kit);
+        window.alp.fills.bind(alp.fills); 
         console.log('⏳ Importing components/index.js...');
         return import(`${BASE}components/index.js`).then(({ components }) => {
           console.log('✅ components/index.js imported', components);
