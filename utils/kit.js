@@ -142,9 +142,6 @@ const text = (() => {
     return { ...base, ...parcel, outSize: parcel.output.length };
   };
 
-  // Format metrics string
-  t.metrics = info => `Raw:${info.sizes.raw} Br:${info.sizes.brotli} Gz:${info.sizes.gzip} Out:${info.outSize}`;
-
   return t;
 })();
 
