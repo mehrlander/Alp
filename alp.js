@@ -5,28 +5,43 @@
   const el = (t, a) => Object.assign(document.createElement(t), a);
   const css = href => document.head.appendChild(el('link', { rel: 'stylesheet', href }));
   const js = src => new Promise((ok, err) => document.head.appendChild(el('script', { src, onload: ok, onerror: err })));
-
   css('https://cdn.jsdelivr.net/combine/npm/daisyui@5/themes.css,npm/daisyui@5,npm/tabulator-tables/dist/css/tabulator_simple.min.css');
 
-  // Proxy queue - allows alp.define() calls before core is loaded
-  window.alp = new Proxy(() => {}, (() => {
+  // Proxy queue factory
+  const qProxy = (opts = {}) => new Proxy(() => {}, (() => {
     let t, ready = 0, q = [];
+    const { nested, onReady, props } = opts;
     const go = () => {
       if (!(ready & 3) || !t) return;
-      for (; q.length;) {
-        const [k, a] = q.shift();
-        (k ? t[k] : t)(...a);
+      while (q.length) {
+        const [path, a] = q.shift();
+        let obj = t;
+        for (const k of path) obj = obj[k];
+        obj(...a);
       }
     };
-    document.addEventListener('alpine:init', () => { ready |= 2; go(); }, { once: 1 });
+    if (onReady) onReady(() => { ready |= 2; go(); });
+    else ready |= 2;
     return {
       get: (_, k) => k === '__q' ? 1
         : k === 'bind' ? o => (t = o, ready |= 1, go(), o)
-        : (ready & 3) && t && (k in t) && typeof t[k] !== 'function' ? t[k]
-        : (...a) => (ready & 3) && t ? t[k](...a) : q.push([k, a]),
-      apply: (_, __, a) => (ready & 3) && t ? t(...a) : q.push([null, a])
+        : props?.[k] !== undefined ? props[k]
+        : nested
+          ? new Proxy(() => {}, {
+              apply: (_, __, a) => { if ((ready & 3) && t) return t[k](...a); q.push([[k], a]); },
+              get: (_, m) => (...a) => { if ((ready & 3) && t) return t[k][m](...a); q.push([[k, m], a]); }
+            })
+          : (ready & 3) && t && (k in t) && typeof t[k] !== 'function'
+            ? t[k]
+            : (...a) => { if ((ready & 3) && t) return t[k](...a); q.push([[k], a]); },
+      apply: (_, __, a) => { if ((ready & 3) && t) return t(...a); q.push([[], a]); }
     };
   })());
+
+  // Create proxies
+  const alpineReady = go => document.addEventListener('alpine:init', go, { once: 1 });
+  const kit = qProxy({ onReady: alpineReady, nested: true });
+  window.alp = qProxy({ onReady: alpineReady, props: { kit } });
 
   // Source storage
   const coreSrc = ['alp.js', 'core.js', 'utils/fills.js', 'utils/kit.js'];
@@ -43,38 +58,39 @@
   };
 
   // Boot sequence
-const boot = () =>
-  js('https://cdn.jsdelivr.net/combine/npm/@tailwindcss/browser@4,npm/@phosphor-icons/web,npm/dexie@4,npm/tabulator-tables')
-    .then(() => {
-      console.log('📦 Alp deps loaded');
-      console.log('⏳ Importing core.js...');
-      return import(`${BASE}core.js`);
-    })
-    .then(({ alp }) => {
-      console.log('✅ core.js imported', alp ? '(alp present)' : '(alp missing!)');
-      window.alp.bind(alp);
-      console.log('⏳ Importing components/index.js...');
-      return import(`${BASE}components/index.js`).then(({ components }) => {
-        console.log('✅ components/index.js imported', components);
-        return { alp, components };
-      });
-    })
-    .then(({ alp, components }) => {
-      console.log('⏳ Storing sources & loading components...');
-      return Promise.all([
-        storeSources(alp.db, components),
-        ...components.map(c => {
-          console.log(`⏳ Importing ${c}...`);
-          return import(`${BASE}components/${c}`).then(() => console.log(`✅ ${c} loaded`));
-        })
-      ]);
-    })
-    .then(() => {
-      console.log('⏳ Loading Alpine.js...');
-      return js('https://unpkg.com/alpinejs@3');
-    })
-    .then(() => console.log('🎨 Alpine.js loaded'))
-    .catch(err => console.error('❌ Boot failed:', err));
+  const boot = () =>
+    js('https://cdn.jsdelivr.net/combine/npm/@tailwindcss/browser@4,npm/@phosphor-icons/web,npm/dexie@4,npm/tabulator-tables')
+      .then(() => {
+        console.log('📦 Alp deps loaded');
+        console.log('⏳ Importing core.js...');
+        return import(`${BASE}core.js`);
+      })
+      .then(({ alp }) => {
+        console.log('✅ core.js imported', alp ? '(alp present)' : '(alp missing!)');
+        window.alp.bind(alp);
+        window.alp.kit.bind(alp.kit);
+        console.log('⏳ Importing components/index.js...');
+        return import(`${BASE}components/index.js`).then(({ components }) => {
+          console.log('✅ components/index.js imported', components);
+          return { alp, components };
+        });
+      })
+      .then(({ alp, components }) => {
+        console.log('⏳ Storing sources & loading components...');
+        return Promise.all([
+          storeSources(alp.db, components),
+          ...components.map(c => {
+            console.log(`⏳ Importing ${c}...`);
+            return import(`${BASE}components/${c}`).then(() => console.log(`✅ ${c} loaded`));
+          })
+        ]);
+      })
+      .then(() => {
+        console.log('⏳ Loading Alpine.js...');
+        return js('https://unpkg.com/alpinejs@3');
+      })
+      .then(() => console.log('🎨 Alpine.js loaded'))
+      .catch(err => console.error('❌ Boot failed:', err));
 
   document.readyState === 'loading'
     ? addEventListener('DOMContentLoaded', boot, { once: 1 })
