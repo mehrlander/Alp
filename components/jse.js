@@ -62,7 +62,6 @@ alp.define('jse', _ => `
   },
 
   async nav() {
-    this.host?.classList.add('block', 'h-full');
     this.jse ||= await alp.kit.jse({
       target: this.find('[name="jse"]'),
       props: { mode: this.mode, content: { json: {} }, onChange: c => this.handleChange(c) }
