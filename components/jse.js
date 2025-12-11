@@ -4,9 +4,7 @@ import { alp } from '../core.js';
 
 alp.define('jse', _ => `
   <div class="flex flex-col h-full bg-base-100 overflow-hidden">
-    <div class="flex-1 overflow-hidden relative">
-      <div name="jse" class="absolute inset-0"></div>
-    </div>
+    <div name="jse" class="flex-1 overflow-hidden min-h-0"></div>
     <div class="flex bg-base-300 text-xs flex-shrink-0 p-2 items-center gap-2 border-t border-base-200">
       <template x-if="namespaces.length > 1">
         <select class="select select-xs w-auto min-w-0" @change="goNs($event.target.value)" x-model="ns">
