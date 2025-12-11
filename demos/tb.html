@@ -4,17 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TB Demo</title>
-  <script src="https://cdn.jsdelivr.net/gh/mehrlander/Alp@e95074199743/alp.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/mehrlander/Alp@e7e40ce618a6/alp.js"></script>
 </head>
 <body class="bg-base-200 p-4">
   <h1 class="text-xl font-bold mb-4">TB (Tabulator) Component Demo</h1>
   <p class="text-sm mb-4">A generic table component with search, JSON export, and optional zip download.</p>
   <div class="border rounded-lg overflow-hidden bg-base-100 h-96">
     <alp-tb path="demo.tb" x-init="$nextTick(() => {
-      const el = $el.querySelector('alp-tb');
       const check = setInterval(() => {
-        if (el.data?.configure) {
-          el.data.configure({
+        if ($el.data?.configure) {
+          $el.data.configure({
             columns: ['name', 'age', 'city'],
             data: [
               { name: 'Alice', age: 30, city: 'Seattle' },
