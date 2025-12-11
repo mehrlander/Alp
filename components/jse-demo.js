@@ -24,12 +24,7 @@ alp.define('jse-demo', _ => `
 
     <!-- Nested alp-jse component -->
     <div class="flex-1 border border-base-300 rounded-lg overflow-hidden" style="min-height: 300px;">
-      <alp-jse
-        @jse-ready="onEditorReady($event.detail)"
-        @jse-navigate="onNavigate($event.detail)"
-        @jse-save="onSave($event.detail)"
-        @jse-change="onChange($event.detail)">
-      </alp-jse>
+      <alp-jse name="editor"></alp-jse>
     </div>
 
     <!-- Info panel -->
@@ -48,7 +43,12 @@ alp.define('jse-demo', _ => `
   lastSaved: false,
 
   async nav() {
-    // Component initialization
+    // Set up event listeners on the nested alp-jse component
+    const jseEl = this.find('[name="editor"]');
+    jseEl.addEventListener('jse-ready', e => this.onEditorReady(e.detail));
+    jseEl.addEventListener('jse-navigate', e => this.onNavigate(e.detail));
+    jseEl.addEventListener('jse-save', e => this.onSave(e.detail));
+    jseEl.addEventListener('jse-change', e => this.onChange(e.detail));
   },
 
   // Handle editor ready event
