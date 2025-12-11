@@ -6,5 +6,6 @@ import { jse } from './kits/jse.js';
 import { text } from './kits/text.js';
 import { tb } from './kits/tb.js';
 import { leg } from './kits/leg.js';
+import { dexie } from './kits/dexie.js';
 
-export const kit = { brotli, gzip, text, acorn, jse, tb, leg };
+export const kit = { brotli, gzip, text, acorn, jse, tb, leg, dexie };
