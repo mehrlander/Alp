@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alp Wrapper Components Demo</title>
+  <script src="alp.js"></script>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    .panel { min-height: 400px; }
+  </style>
+</head>
+<body class="bg-base-200 p-4 h-full overflow-auto">
+  <div x-data="wrapperDemo()" class="flex flex-col gap-6 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="text-center">
+      <h1 class="text-2xl font-bold mb-2">Alp Wrapper Components Demo</h1>
+      <p class="text-sm text-base-content/70">
+        Demonstrating nested alp-tb and alp-jse wrapper components
+      </p>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="tabs tabs-boxed bg-base-100 justify-center">
+      <button class="tab" :class="activeTab === 'tb' && 'tab-active'" @click="activeTab = 'tb'">
+        <i class="ph ph-table mr-2"></i> Table (alp-tb)
+      </button>
+      <button class="tab" :class="activeTab === 'jse' && 'tab-active'" @click="activeTab = 'jse'">
+        <i class="ph ph-code mr-2"></i> JSON Editor (alp-jse)
+      </button>
+      <button class="tab" :class="activeTab === 'both' && 'tab-active'" @click="activeTab = 'both'">
+        <i class="ph ph-squares-four mr-2"></i> Both Side-by-Side
+      </button>
+      <button class="tab" :class="activeTab === 'integrated' && 'tab-active'" @click="activeTab = 'integrated'">
+        <i class="ph ph-link mr-2"></i> Integrated Example
+      </button>
+    </div>
+
+    <!-- TB Demo Panel -->
+    <div x-show="activeTab === 'tb'" class="panel border rounded-lg overflow-hidden bg-base-100 shadow-lg">
+      <alp-tb-demo></alp-tb-demo>
+    </div>
+
+    <!-- JSE Demo Panel -->
+    <div x-show="activeTab === 'jse'" class="panel border rounded-lg overflow-hidden bg-base-100 shadow-lg">
+      <alp-jse-demo></alp-jse-demo>
+    </div>
+
+    <!-- Side-by-Side Panel -->
+    <div x-show="activeTab === 'both'" class="grid grid-cols-2 gap-4">
+      <div class="panel border rounded-lg overflow-hidden bg-base-100 shadow-lg">
+        <alp-tb-demo></alp-tb-demo>
+      </div>
+      <div class="panel border rounded-lg overflow-hidden bg-base-100 shadow-lg">
+        <alp-jse-demo></alp-jse-demo>
+      </div>
+    </div>
+
+    <!-- Integrated Example -->
+    <div x-show="activeTab === 'integrated'" class="flex flex-col gap-4">
+      <div class="bg-base-100 rounded-lg p-4 shadow-lg">
+        <h2 class="text-lg font-bold mb-2">Integrated Example: Table + JSON Editor</h2>
+        <p class="text-sm text-base-content/70 mb-4">
+          Click a row in the table to view its data in the JSON editor. Edit the JSON and see changes reflected.
+        </p>
+        <div class="flex gap-2 mb-4">
+          <button class="btn btn-sm btn-accent" @click="loadIntegratedData()">Load Data</button>
+          <button class="btn btn-sm btn-secondary" @click="syncToTable()">Sync JSON to Table</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <!-- Direct alp-tb usage (no wrapper demo) -->
+        <div class="panel border rounded-lg overflow-hidden bg-base-100 shadow-lg p-2">
+          <div class="text-sm font-semibold mb-2 px-2">Data Table</div>
+          <alp-tb @tb-ready="onIntegratedTableReady($event.detail)"></alp-tb>
+        </div>
+        <!-- Direct alp-jse usage (no wrapper demo) -->
+        <div class="panel border rounded-lg overflow-hidden bg-base-100 shadow-lg p-2">
+          <div class="text-sm font-semibold mb-2 px-2">Selected Record</div>
+          <alp-jse @jse-ready="onIntegratedEditorReady($event.detail)"></alp-jse>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center text-xs text-base-content/50 py-4">
+      <p>These components demonstrate the nesting capability of Alp components.</p>
+      <p>The alp-tb and alp-jse wrapper components can be configured and used in any parent component.</p>
+    </div>
+  </div>
+
+  <script>
+    function wrapperDemo() {
+      return {
+        activeTab: 'tb',
+
+        // Integrated example state
+        integratedTb: null,
+        integratedJse: null,
+        integratedData: [],
+
+        // Handle integrated table ready
+        onIntegratedTableReady({ table, component }) {
+          this.integratedTb = component;
+
+          // Configure the table
+          this.integratedTb.configure({
+            columns: [
+              { title: 'ID', field: 'id', width: 80 },
+              { title: 'Name', field: 'name' },
+              { title: 'Type', field: 'type' },
+              { title: 'Value', field: 'value' }
+            ],
+            height: '300px',
+            layout: 'fitColumns',
+            showFilters: true,
+            searchField: 'name',
+            showDownloadJson: true,
+            showClear: true
+          });
+
+          // Add row click handler
+          table.on('rowClick', (e, row) => {
+            const data = row.getData();
+            if (this.integratedJse) {
+              // Show this row's data in the JSON editor
+              this.integratedJse.setRecords([
+                { key: `row-${data.id}`, label: data.name, data: data }
+              ]);
+            }
+          });
+        },
+
+        // Handle integrated editor ready
+        onIntegratedEditorReady({ editor, component }) {
+          this.integratedJse = component;
+
+          // Configure editor
+          this.integratedJse.configure({
+            showModeSwitch: true,
+            showClear: false,
+            showAdd: false,
+            autoSave: false
+          });
+        },
+
+        // Load data for integrated example
+        loadIntegratedData() {
+          const types = ['config', 'user', 'product', 'order', 'log'];
+
+          this.integratedData = Array.from({ length: 25 }, (_, i) => ({
+            id: i + 1,
+            name: `Item ${i + 1}`,
+            type: types[i % types.length],
+            value: Math.floor(Math.random() * 1000),
+            details: {
+              created: new Date(Date.now() - Math.random() * 86400000 * 30).toISOString(),
+              modified: new Date().toISOString(),
+              tags: ['tag' + (i % 3), 'tag' + ((i + 1) % 4)]
+            },
+            metadata: {
+              version: '1.0.' + i,
+              active: i % 2 === 0
+            }
+          }));
+
+          if (this.integratedTb) {
+            this.integratedTb.setData(this.integratedData);
+          }
+
+          // Also set up the JSE with all records
+          if (this.integratedJse) {
+            const records = this.integratedData.map(d => ({
+              key: `row-${d.id}`,
+              label: d.name,
+              ns: d.type,
+              data: d
+            }));
+            this.integratedJse.setRecords(records, { defaultNs: 'config' });
+          }
+        },
+
+        // Sync current JSON back to table
+        syncToTable() {
+          if (!this.integratedJse || !this.integratedTb) return;
+
+          const json = this.integratedJse.getJson();
+          if (json && json.id) {
+            // Find and update the row in the table
+            const rows = this.integratedTb.table.getRows();
+            const row = rows.find(r => r.getData().id === json.id);
+            if (row) {
+              row.update(json);
+              console.log('Updated row', json.id, 'with:', json);
+            }
+          }
+        }
+      };
+    }
+  </script>
+</body>
+</html>
