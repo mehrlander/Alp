@@ -150,6 +150,7 @@ export const alp = {
   ...core,
   fills,
   kit,
+  defs,
   mk: (tagEnd) => mk(tagEnd, defs[tagEnd]?.initState || {})
 };
 
