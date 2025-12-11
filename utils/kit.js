@@ -49,6 +49,7 @@ const gzip = (() => {
     let m; while ((m = r.exec(str))) chunks.push({ alg: 'gzip', label: m[1] ?? null, start: m.index, end: m.index + m[0].length, text: m[0] });
     return chunks;
   };
+  gz.sizeOf = async text => (await stream(true, new TextEncoder().encode(text))).length;
   return gz;
 })();
 
@@ -159,12 +160,72 @@ const jse = (() => {
   return async opts => (await load()).createJSONEditor(opts);
 })();
 
+const jszip = (() => {
+  let mod;
+  return async () => mod ??= await import('https://cdn.jsdelivr.net/npm/jszip/+esm').then(m => m.default);
+})();
+
 const tt = (() => {
   const create = ({ target, ...props }) => new Promise(r => {
     const t = new Tabulator(target, props);
     t.on('tableBuilt', () => r(t));
   });
   create.buildColumns = fields => fields.map(f => typeof f === 'string' ? { field: f, title: f } : f);
+
+  // Download table data as JSON
+  // options: { filename, timestamp (bool or format string), space (JSON indent) }
+  create.downloadJson = (table, { filename = 'data', timestamp = true, space = 2 } = {}) => {
+    const data = table.getData();
+    const ts = timestamp ? '-' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) : '';
+    const blob = new Blob([JSON.stringify(data, null, space)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${filename}${ts}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  // Download files as ZIP with progress tracking
+  // options: { filename, fileMapper(rowData) => [{ path, url }], onProgress(current, total, rowData) }
+  create.downloadZip = async (table, { filename = 'download.zip', fileMapper, onProgress, selector = 'visible' } = {}) => {
+    const JSZip = await jszip();
+    const rows = table.getRows(selector);
+    if (!rows.length) return { success: false, error: 'No rows to download' };
+
+    const zip = new JSZip();
+    let completed = 0;
+
+    for (const row of rows) {
+      const data = row.getData();
+      const files = fileMapper ? fileMapper(data) : [];
+
+      onProgress?.(completed, rows.length, data);
+
+      for (const { path, url } of files) {
+        try {
+          const blob = await fetch(url).then(r => r.blob());
+          zip.file(path, blob);
+        } catch (e) {
+          console.error('Failed to fetch:', url, e);
+        }
+      }
+      completed++;
+    }
+
+    onProgress?.(completed, rows.length, null);
+
+    const content = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(content);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    return { success: true, count: rows.length };
+  };
+
+  // Get compressed size of text using gzip
+  create.getCompressedSize = text => gzip.sizeOf(text);
+
   return create;
 })();
 
