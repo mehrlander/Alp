@@ -2,12 +2,6 @@
 
 import { alp } from '../core.js';
 
-// Load required dependencies (Luxon for date parsing)
-const loadDeps = (() => {
-  let p = null;
-  return () => p ||= import('https://cdn.jsdelivr.net/npm/luxon/+esm').then(m => ({ DateTime: m.DateTime }));
-})();
-
 alp.define('bill-table', _ => `
   <div class="flex flex-col h-full bg-base-100 p-2 gap-2 text-sm">
     <!-- Filters Row -->
@@ -46,7 +40,6 @@ alp.define('bill-table', _ => `
 `, {
   // State
   table: null,
-  deps: null,
   loaded: new Set(),
 
   kindFilters: { Bills: true, 'Session Laws': true },
@@ -58,14 +51,12 @@ alp.define('bill-table', _ => `
   loadingSummaries: false,
   summariesText: 'Summaries',
 
-  // Biennium options
-  bienniums: ['2025-26', '2023-24', '2021-22', '2019-20', '2017-18', '2015-16', '2013-14', '2011-12', '2009-10', '2007-08', '2005-06', '2003-04'],
-  types: ['Bills', 'Session Laws'],
+  // Biennium options (from leg kit)
+  get bienniums() { return alp.kit.leg.bienniums; },
+  get types() { return alp.kit.leg.types; },
 
   // Initialize component
   async nav() {
-    this.deps ||= await loadDeps();
-
     // Initialize table if not already done
     if (!this.table) {
       this.table = await alp.kit.tb({
@@ -112,87 +103,7 @@ alp.define('bill-table', _ => `
     });
   },
 
-  // URL builder for WA Legislature
-  buildUrl(chamber, format, biennium, type) {
-    const base = `https://lawfilesext.leg.wa.gov/Biennium/${biennium}/${format}/Bills/`;
-    return type === 'Bills'
-      ? `${base}${chamber}%20Bills/`
-      : `${base}Session%20Laws/${chamber}/`;
-  },
-
-  // Parse directory listing XML
-  parseDirectoryListing(html, chamber, biennium, type) {
-    const { DateTime } = this.deps;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const pre = doc.querySelector('pre');
-    if (!pre) return [];
-
-    const lines = pre.innerHTML.split('<br>').filter(Boolean);
-    return lines.map(line => {
-      // Create temp element to parse HTML entities and extract text
-      const temp = document.createElement('div');
-      temp.innerHTML = line;
-      const text = temp.textContent;
-
-      // Match pattern: date time size filename
-      const match = text.match(/(\d{1,2}\/\d{1,2}\/\d{4})\s+\d{1,2}:\d{2}\s+[AP]M\s+(\S+)\s+(.+)/);
-      if (!match) return null;
-
-      const fullFileName = match[3].trim();
-      const name = fullFileName.split('.')[0];
-      const fileName = fullFileName.replace(/\.(xml|htm)$/i, '');
-
-      // Extract URL from anchor tag
-      const anchor = temp.querySelector('a');
-      const href = anchor?.getAttribute('href') || '';
-      const urlXml = new URL(href, 'https://lawfilesext.leg.wa.gov/').href;
-
-      const billNo = name.slice(0, 4);
-      return {
-        docId: `${biennium}_${type}_${name}`,
-        billId: `${biennium}_${billNo}`,
-        billNo,
-        date: DateTime.fromFormat(match[1], 'M/d/yyyy').toFormat('yyyy-MM-dd'),
-        size: Math.round(parseInt(match[2].replace(/,/g, '')) / 1024) || 0,
-        compressedSize: null,
-        name,
-        fileName,
-        urlXml,
-        chamber,
-        biennium,
-        kind: type,
-        totalDollarAmount: null,
-        description: 'Click "Summaries" to load'
-      };
-    }).filter(Boolean);
-  },
-
-  // Build tree structure for bills
-  buildTree(data) {
-    const map = new Map();
-    data.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    data.forEach(item => {
-      const id = item.billNo;
-      if (!map.has(id)) {
-        map.set(id, { ...item, _children: [] });
-      } else {
-        map.get(id)._children.push(item);
-      }
-    });
-
-    return [...map.values()].map(row => {
-      if (row._children?.length) {
-        row._children.sort((a, b) => new Date(b.date) - new Date(a.date));
-      } else {
-        delete row._children;
-      }
-      return row;
-    });
-  },
-
-  // Fetch bills for a biennium (public method for external use)
+  // Fetch bills for a biennium (uses leg kit)
   async fetchBiennium(biennium) {
     if (this.loaded.has(biennium)) {
       console.log('Already loaded:', biennium);
@@ -200,26 +111,18 @@ alp.define('bill-table', _ => `
     }
     console.log('Loading all kinds for:', biennium);
 
-    for (const type of this.types) {
-      const [houseResponse, senateResponse] = await Promise.all([
-        fetch(this.buildUrl('House', 'Xml', biennium, type)).then(r => r.text()),
-        fetch(this.buildUrl('Senate', 'Xml', biennium, type)).then(r => r.text())
-      ]);
-
-      let data = [
-        ...this.parseDirectoryListing(houseResponse, 'House', biennium, type),
-        ...this.parseDirectoryListing(senateResponse, 'Senate', biennium, type)
-      ];
-      console.log(`Parsed ${type}:`, data.length, 'rows');
-
-      if (type === 'Bills') {
-        data = this.buildTree(data);
-      } else {
-        data.sort((a, b) => b.size - a.size);
+    const data = await alp.kit.leg(biennium);
+    // Add placeholder description for UI
+    data.forEach(item => {
+      if (item.description === null) item.description = 'Click "Summaries" to load';
+      if (item._children) {
+        item._children.forEach(child => {
+          if (child.description === null) child.description = 'Click "Summaries" to load';
+        });
       }
-
-      this.table.addData(data);
-    }
+    });
+    console.log('Loaded:', data.length, 'rows');
+    this.table.addData(data);
 
     this.loaded.add(biennium);
     await this.persist();
@@ -301,21 +204,15 @@ alp.define('bill-table', _ => `
           rows[i].update({ description: 'Loading...' });
 
           try {
-            const xml = await fetch(d.urlXml).then(r => r.text());
-            const doc = new DOMParser().parseFromString(xml, 'application/xml');
-
-            const dollarAmounts = [...doc.querySelectorAll('DollarAmount')].map(el =>
-              parseFloat(el.textContent.replace(/[$,]/g, '')) || 0
-            );
-            const total = dollarAmounts.length ? dollarAmounts.reduce((a, b) => a + b, 0) : null;
+            const { description, totalDollarAmount, xml } = await alp.kit.leg.fetchBillSummary(d.urlXml);
             const compressedSize = Math.round(await alp.kit.gzip.sizeOf(xml) / 1024);
 
             rows[i].update({
-              description: doc.querySelector('BriefDescription')?.textContent || 'No description',
-              totalDollarAmount: total,
+              description: description || 'No description',
+              totalDollarAmount,
               compressedSize
             });
-            console.log('Loaded', d.name, '- $', total, '- Compressed:', compressedSize, 'KB');
+            console.log('Loaded', d.name, '- $', totalDollarAmount, '- Compressed:', compressedSize, 'KB');
           } catch (e) {
             console.error('Failed to load', d.name, e);
             rows[i].update({ description: 'Error loading' });
