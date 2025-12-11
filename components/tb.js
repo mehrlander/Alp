@@ -1,6 +1,6 @@
 // components/tb.js - Lean Tabulator wrapper
-// Use window.alp (the bound proxy) instead of ES module import to avoid module instance issues
-const alp = window.alp;
+
+import { alp } from '../core.js';
 
 alp.define('tb', _ => `
   <div class="flex flex-col h-full bg-base-100 p-2 gap-2 text-sm">
