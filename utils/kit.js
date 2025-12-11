@@ -4,6 +4,6 @@ import { gzip } from './kits/gzip.js';
 import { acorn } from './kits/acorn.js';
 import { jse } from './kits/jse.js';
 import { text } from './kits/text.js';
-import { tt } from './kits/tt.js';
+import { tb } from './kits/tb.js';
 
 export const kit = { brotli, gzip, text, acorn, jse, tt };
