@@ -34,7 +34,7 @@ alp.define('tb', _ => `
     this.table = await alp.kit.tb({
       target: this.find('[name="table"]'),
       layout: 'fitData',
-      height: '100%',
+      height: '300px',
       columns: alp.kit.tb.buildColumns(this.columns)
     });
     this.table.on('dataFiltered', (f, rows) => this.rowCount = rows.length);
