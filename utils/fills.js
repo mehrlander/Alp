@@ -11,13 +11,13 @@ export const fills = {
       class="input input-xs input-ghost text-xs text-right w-48"
       placeholder="path">`,
   saveIndicator: () => `<span x-show="saving" class="loading loading-spinner loading-xs"></span>`,
-  toolbar: (mods, ...items) => `<div class="flex gap-2 items-center justify-between mb-2">${items.join('')}</div>`,
+  toolbar: (...items) => `<div class="flex gap-2 items-center justify-between mb-2">${items.join('')}</div>`,
   btn: (mods, label, click, iconClasses = '', extraClasses = '') => `
     <button @click="${click}" class="btn ${mc('btn', mods)} ${extraClasses}">
       ${iconClasses ? `<i class="ph ${iconClasses} ${sz(mods) ? `text-${sz(mods)}` : ''}"></i>` : ''}
       ${label ? `<span>${label}</span>` : ''}
     </button>`,
-  modal: (mods, inner) => `
+  modal: (inner) => `
     <dialog class="modal">
       <div class="modal-box w-full max-w-[95%] h-[80vh] p-0 shadow-lg flex flex-col overflow-hidden rounded-lg">
         ${inner}
