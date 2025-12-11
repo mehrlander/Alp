@@ -11,24 +11,56 @@
 </head>
 <body class="bg-base-200 p-4 h-full overflow-auto">
   <div class="flex flex-col gap-4 max-w-4xl mx-auto h-full">
-    <!-- Header -->
     <div class="text-center">
       <h1 class="text-2xl font-bold mb-2">Alp JSON Editor (JSE) Demo</h1>
       <p class="text-sm text-base-content/70">
-        Demonstrating the alp-jse-demo wrapper component for JSON editing with pagination
+        Lean wrapper (~90 lines) around vanilla-jsoneditor using alp's storage API
       </p>
     </div>
 
-    <!-- JSE Demo Component -->
-    <div class="flex-1 border rounded-lg overflow-hidden bg-base-100 shadow-lg" style="min-height: 500px;">
-      <alp-jse-demo></alp-jse-demo>
+    <div class="flex gap-2 justify-center">
+      <button class="btn btn-sm btn-primary" onclick="seedSamples()">Load Sample Data</button>
+      <button class="btn btn-sm btn-secondary" onclick="clearAll()">Clear All</button>
     </div>
 
-    <!-- Footer -->
+    <div class="flex-1 border rounded-lg overflow-hidden bg-base-100 shadow-lg" style="min-height: 500px;">
+      <alp-jse></alp-jse>
+    </div>
+
     <div class="text-center text-xs text-base-content/50 py-4">
-      <p>The alp-jse component wraps vanilla-jsoneditor with record pagination and namespace filtering.</p>
-      <p>Click "Load Samples" or "Load from API" to populate the editor with records.</p>
+      <p>Uses <code>alp.load()</code> for catalog, <code>alp.loadRecord()</code> / <code>alp.saveRecord()</code> for data.</p>
+      <p>Namespace dropdown, pagination, mode switcher, add/delete controls - all in ~90 lines.</p>
     </div>
   </div>
+
+  <script type="module">
+    import { alp } from './core.js';
+    import './components/jse.js';
+
+    const samples = {
+      'demo.users': { name: 'Alice', age: 30, roles: ['admin', 'user'] },
+      'demo.config': { theme: 'light', debug: false, version: '1.0.0' },
+      'demo.settings': { notifications: true, language: 'en' },
+      'api.endpoints': { base: '/api/v1', timeout: 5000 },
+      'api.auth': { type: 'bearer', expiry: 3600 }
+    };
+
+    window.seedSamples = async () => {
+      for (const [key, data] of Object.entries(samples)) {
+        await alp.saveRecord(key, data);
+      }
+      document.querySelector('alp-jse').data.refresh();
+    };
+
+    window.clearAll = async () => {
+      const catalog = await alp.load();
+      for (const records of Object.values(catalog)) {
+        for (const r of records) {
+          await alp.deleteRecord(r.key);
+        }
+      }
+      document.querySelector('alp-jse').data.refresh();
+    };
+  </script>
 </body>
 </html>
