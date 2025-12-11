@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alp JSON Editor (JSE) Demo</title>
+  <script src="https://cdn.jsdelivr.net/gh/mehrlander/Alp@main/alp.js"></script>
+  <style>
+    html, body { height: 100%; margin: 0; }
+  </style>
+</head>
+<body class="bg-base-200 p-4 h-full overflow-auto">
+  <div class="flex flex-col gap-4 max-w-4xl mx-auto h-full">
+    <!-- Header -->
+    <div class="text-center">
+      <h1 class="text-2xl font-bold mb-2">Alp JSON Editor (JSE) Demo</h1>
+      <p class="text-sm text-base-content/70">
+        Demonstrating the alp-jse-demo wrapper component for JSON editing with pagination
+      </p>
+    </div>
+
+    <!-- JSE Demo Component -->
+    <div class="flex-1 border rounded-lg overflow-hidden bg-base-100 shadow-lg" style="min-height: 500px;">
+      <alp-jse-demo></alp-jse-demo>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center text-xs text-base-content/50 py-4">
+      <p>The alp-jse component wraps vanilla-jsoneditor with record pagination and namespace filtering.</p>
+      <p>Click "Load Samples" or "Load from API" to populate the editor with records.</p>
+    </div>
+  </div>
+</body>
+</html>
