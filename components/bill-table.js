@@ -2,13 +2,10 @@
 
 import { alp } from '../core.js';
 
-// Load required dependencies (Luxon, JSZip)
+// Load required dependencies (Luxon for date parsing)
 const loadDeps = (() => {
   let p = null;
-  return () => p ||= Promise.all([
-    import('https://cdn.jsdelivr.net/npm/luxon/+esm'),
-    import('https://cdn.jsdelivr.net/npm/jszip/+esm')
-  ]).then(([luxon, jszip]) => ({ DateTime: luxon.DateTime, JSZip: jszip.default }));
+  return () => p ||= import('https://cdn.jsdelivr.net/npm/luxon/+esm').then(m => ({ DateTime: m.DateTime }));
 })();
 
 alp.define('bill-table', _ => `
@@ -253,20 +250,11 @@ alp.define('bill-table', _ => `
 
   // Download data as JSON
   downloadData() {
-    const { DateTime } = this.deps;
-    const data = this.table.getData();
-    const timestamp = DateTime.now().toFormat('yyyyMMdd-HHmmss');
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `wa-legislature-data-${timestamp}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    alp.kit.tt.downloadJson(this.table, { filename: 'wa-legislature-data' });
   },
 
   // Download visible rows as ZIP
   async downloadZip() {
-    const { JSZip } = this.deps;
     const rows = this.table.getRows('visible');
     if (!rows.length) {
       alert('No files to download');
@@ -277,43 +265,24 @@ alp.define('bill-table', _ => `
     this.downloadText = 'Preparing...';
 
     try {
-      const zip = new JSZip();
-      for (let i = 0; i < rows.length; i++) {
-        const d = rows[i].getData();
-        this.downloadText = `Downloading ${i + 1}/${rows.length}`;
-
-        try {
-          // Derive urlHtm from urlXml by replacing xml with htm
+      await alp.kit.tt.downloadZip(this.table, {
+        filename: 'wa-legislature-files.zip',
+        fileMapper: d => {
           const urlHtm = d.urlXml.replace(/xml/gi, 'htm');
-          const [xmlBlob, htmBlob] = await Promise.all([
-            fetch(d.urlXml).then(r => r.blob()),
-            fetch(urlHtm).then(r => r.blob())
-          ]);
-          zip.file(`${d.biennium}/${d.kind}/${d.chamber}/${d.name}.xml`, xmlBlob);
-          zip.file(`${d.biennium}/${d.kind}/${d.chamber}/${d.name}.htm`, htmBlob);
-        } catch (e) {
-          console.error('Failed:', d.name, e);
+          const basePath = `${d.biennium}/${d.kind}/${d.chamber}/${d.name}`;
+          return [
+            { path: `${basePath}.xml`, url: d.urlXml },
+            { path: `${basePath}.htm`, url: urlHtm }
+          ];
+        },
+        onProgress: (current, total, data) => {
+          this.downloadText = data ? `Downloading ${current + 1}/${total}` : 'Generating zip...';
         }
-      }
-
-      this.downloadText = 'Generating zip...';
-      const content = await zip.generateAsync({ type: 'blob' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(content);
-      a.download = 'wa-legislature-files.zip';
-      a.click();
-      URL.revokeObjectURL(a.href);
+      });
     } finally {
       this.downloading = false;
       this.downloadText = 'Download Zip';
     }
-  },
-
-  // Compress text with gzip and return size
-  async compressGzip(text) {
-    const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
-    const blob = await new Response(stream).blob();
-    return blob.size;
   },
 
   // Load summaries for visible rows
@@ -339,7 +308,7 @@ alp.define('bill-table', _ => `
               parseFloat(el.textContent.replace(/[$,]/g, '')) || 0
             );
             const total = dollarAmounts.length ? dollarAmounts.reduce((a, b) => a + b, 0) : null;
-            const compressedSize = Math.round(await this.compressGzip(xml) / 1024);
+            const compressedSize = Math.round(await alp.kit.gzip.sizeOf(xml) / 1024);
 
             rows[i].update({
               description: doc.querySelector('BriefDescription')?.textContent || 'No description',
