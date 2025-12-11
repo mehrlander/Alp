@@ -1,7 +1,7 @@
 // components/tb-demo.js - Demo component showcasing alp-tb usage
 // Shows how to nest and configure the generalized Tabulator component
-
-import { alp } from '../core.js';
+// Use window.alp (the bound proxy) instead of ES module import to avoid module instance issues
+const alp = window.alp;
 
 alp.define('tb-demo', _ => `
   <div class="flex flex-col h-full bg-base-200 p-4 gap-4">

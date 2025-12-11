@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Raw alp.kit.tb Demo</title>
+  <script src="https://cdn.jsdelivr.net/gh/mehrlander/Alp@main/alp.js"></script>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #table { height: 400px; }
+  </style>
+</head>
+<body class="bg-base-200 p-4 h-full overflow-auto">
+  <div class="flex flex-col gap-4 max-w-6xl mx-auto">
+    <div class="text-center">
+      <h1 class="text-2xl font-bold mb-2">Raw alp.kit.tb Demo</h1>
+      <p class="text-sm text-base-content/70">
+        Direct use of <code>alp.kit.tb()</code> without the <code>&lt;alp-tb&gt;</code> wrapper component.
+        This helps isolate whether issues are in the kit or the wrapper.
+      </p>
+    </div>
+
+    <div class="flex gap-2 justify-center flex-wrap">
+      <button class="btn btn-sm btn-primary" onclick="loadSample()">Load Sample Data</button>
+      <button class="btn btn-sm btn-info" onclick="loadFromApi()">Load from API</button>
+      <button class="btn btn-sm btn-secondary" onclick="clearTable()">Clear Table</button>
+      <button class="btn btn-sm btn-accent" onclick="downloadJson()">Download JSON</button>
+      <button class="btn btn-sm btn-warning" onclick="getRowCount()">Get Row Count</button>
+    </div>
+
+    <div class="bg-base-100 rounded-lg shadow-lg overflow-hidden p-2">
+      <div id="table"></div>
+    </div>
+
+    <div class="bg-base-100 rounded-lg shadow-lg p-4">
+      <h3 class="font-bold mb-2">Output / Status</h3>
+      <pre id="output" class="text-xs bg-base-200 p-2 rounded overflow-auto max-h-40"></pre>
+    </div>
+
+    <div class="text-center text-xs text-base-content/50 py-4">
+      <p>Uses <code>alp.kit.tb({ target, columns, ... })</code> directly from Tabulator.</p>
+      <p>No alp component wrapper involved - just the raw kit function.</p>
+    </div>
+  </div>
+
+  <script>
+    let table = null;
+    const output = document.getElementById('output');
+
+    const log = (msg) => {
+      output.textContent = typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2);
+      console.log(msg);
+    };
+
+    // Column definitions
+    const columns = [
+      { title: 'ID', field: 'id', sorter: 'number', width: 60 },
+      { title: 'Name', field: 'name', sorter: 'string' },
+      { title: 'Email', field: 'email' },
+      { title: 'Role', field: 'role' },
+      { title: 'Status', field: 'status' }
+    ];
+
+    // Initialize table when alp is ready
+    const initTable = async () => {
+      try {
+        log('Initializing table...');
+
+        // Use alp.kit.tb.buildColumns for simple string columns, or pass full column objects
+        table = await alp.kit.tb({
+          target: document.getElementById('table'),
+          columns: columns,
+          layout: 'fitColumns',
+          height: '100%',
+          placeholder: 'No data loaded - click "Load Sample Data" or "Load from API"'
+        });
+
+        // Add event listeners
+        table.on('dataLoaded', (data) => {
+          log('Data loaded: ' + data.length + ' rows');
+        });
+
+        table.on('dataFiltered', (filters, rows) => {
+          console.log('Data filtered:', rows.length, 'visible rows');
+        });
+
+        log('Table initialized successfully!\n\nClick "Load Sample Data" or "Load from API" to populate.');
+      } catch (e) {
+        log('Error initializing table: ' + e.message);
+        console.error(e);
+      }
+    };
+
+    // Wait for Alpine init (indicates alp is fully loaded)
+    document.addEventListener('alpine:init', () => {
+      // Small delay to ensure kit is bound
+      setTimeout(initTable, 100);
+    });
+
+    // Sample data
+    const sampleData = [
+      { id: 1, name: 'Alice Johnson', email: 'alice@example.com', role: 'Admin', status: 'Active' },
+      { id: 2, name: 'Bob Smith', email: 'bob@example.com', role: 'User', status: 'Active' },
+      { id: 3, name: 'Charlie Brown', email: 'charlie@example.com', role: 'Editor', status: 'Inactive' },
+      { id: 4, name: 'Diana Prince', email: 'diana@example.com', role: 'User', status: 'Active' },
+      { id: 5, name: 'Eve Wilson', email: 'eve@example.com', role: 'Admin', status: 'Pending' },
+      { id: 6, name: 'Frank Miller', email: 'frank@example.com', role: 'User', status: 'Active' },
+      { id: 7, name: 'Grace Lee', email: 'grace@example.com', role: 'Editor', status: 'Active' },
+      { id: 8, name: 'Henry Ford', email: 'henry@example.com', role: 'User', status: 'Inactive' }
+    ];
+
+    window.loadSample = () => {
+      if (!table) {
+        log('Table not initialized yet!');
+        return;
+      }
+      table.setData(sampleData);
+    };
+
+    window.loadFromApi = async () => {
+      if (!table) {
+        log('Table not initialized yet!');
+        return;
+      }
+      try {
+        log('Loading from API...');
+        const resp = await fetch('https://jsonplaceholder.typicode.com/users');
+        const users = await resp.json();
+
+        // Transform API data to match our columns
+        const data = users.map(u => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          role: ['Admin', 'User', 'Editor'][u.id % 3],
+          status: u.id % 2 === 0 ? 'Active' : 'Inactive'
+        }));
+
+        table.setData(data);
+      } catch (e) {
+        log('Error loading from API: ' + e.message);
+      }
+    };
+
+    window.clearTable = () => {
+      if (!table) {
+        log('Table not initialized yet!');
+        return;
+      }
+      table.setData([]);
+      log('Table cleared');
+    };
+
+    window.downloadJson = () => {
+      if (!table) {
+        log('Table not initialized yet!');
+        return;
+      }
+      alp.kit.tb.downloadJson(table, { filename: 'table-data', timestamp: true });
+      log('Download initiated');
+    };
+
+    window.getRowCount = () => {
+      if (!table) {
+        log('Table not initialized yet!');
+        return;
+      }
+      const data = table.getData();
+      log('Row count: ' + data.length);
+    };
+  </script>
+</body>
+</html>

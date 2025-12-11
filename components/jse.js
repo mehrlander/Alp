@@ -1,5 +1,6 @@
 // components/jse.js - Lean JSON Editor wrapper
-import { alp } from '../core.js';
+// Use window.alp (the bound proxy) instead of ES module import to avoid module instance issues
+const alp = window.alp;
 
 alp.define('jse', _ => `
   <div class="flex flex-col h-full bg-base-100 overflow-hidden">
