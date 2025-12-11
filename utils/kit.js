@@ -6,4 +6,4 @@ import { jse } from './kits/jse.js';
 import { text } from './kits/text.js';
 import { tb } from './kits/tb.js';
 
-export const kit = { brotli, gzip, text, acorn, jse, tt };
+export const kit = { brotli, gzip, text, acorn, jse, tb };
