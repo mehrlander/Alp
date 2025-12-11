@@ -5,5 +5,6 @@ import { acorn } from './kits/acorn.js';
 import { jse } from './kits/jse.js';
 import { text } from './kits/text.js';
 import { tb } from './kits/tb.js';
+import { leg } from './kits/leg.js';
 
-export const kit = { brotli, gzip, text, acorn, jse, tb };
+export const kit = { brotli, gzip, text, acorn, jse, tb, leg };
