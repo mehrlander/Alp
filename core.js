@@ -120,7 +120,7 @@ const mk = (tagEnd, initState = {}) => {
     mount(el) {
       this.el = el;
       this.host = el.closest(`alp-${tagEnd}`);
-      this.host?.classList.add('block');
+      this.host?.classList.add('block', 'h-full');
       const p = this.host?.getAttribute('path');
       if (p) { this.path = p; this._path = p; }
       reg(this._path, this);
