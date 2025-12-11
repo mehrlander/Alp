@@ -1,6 +1,7 @@
 // components/bill-table.js - WA Legislature Bill Table Component
 
 import { alp } from '../core.js';
+const { modal } = alp.fills;
 
 // Load required dependencies (Luxon, JSZip)
 const loadDeps = (() => {
@@ -11,7 +12,7 @@ const loadDeps = (() => {
   ]).then(([luxon, jszip]) => ({ DateTime: luxon.DateTime, JSZip: jszip.default }));
 })();
 
-alp.define('bill-table', _ => `
+alp.define('bill-table', _ => modal(`
   <div class="flex flex-col h-full bg-base-100 p-2 gap-2 text-sm">
     <!-- Filters Row -->
     <div class="flex items-center gap-4 text-xs flex-wrap">
@@ -46,7 +47,7 @@ alp.define('bill-table', _ => `
       </div>
     </div>
   </div>
-`, {
+`), {
   // State
   table: null,
   deps: null,
@@ -64,6 +65,13 @@ alp.define('bill-table', _ => `
   // Biennium options
   bienniums: ['2025-26', '2023-24', '2021-22', '2019-20', '2017-18', '2015-16', '2013-14', '2011-12', '2009-10', '2007-08', '2005-06', '2003-04'],
   types: ['Bills', 'Session Laws'],
+
+  // Open modal
+  async open() {
+    this.find('dialog').showModal();
+    await Alpine.nextTick();
+    await this.nav();
+  },
 
   // Initialize component
   async nav() {
