@@ -2,7 +2,7 @@
 import { alp } from '../core.js';
 alp.define('jse', _ => `
   <div class="flex flex-col h-full bg-base-100 overflow-hidden">
-    <div> Am I even here </div>
+    <div class="h-full"> Am I even here </div>
     <div class="flex-1 relative overflow-hidden min-h-0">
       <div name="jse" class="absolute inset-0 overflow-auto"></div>
     </div>
