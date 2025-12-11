@@ -135,7 +135,7 @@ const define = (tagEnd, tplFn, initState = {}) => {
 
   class C extends Alp {
     tpl() {
-      return `<div x-data="alp.mk('${tagEnd}')" x-init="mount($el)">${tplFn('path')}</div>`;
+      return `<div x-data="alp.mk('${tagEnd}')" x-init="mount($el)" class="h-full">${tplFn('path')}</div>`;
     }
   }
 
