@@ -1,11 +1,13 @@
 // components/jse.js - Lean JSON Editor wrapper
+
 import { alp } from '../core.js';
+
 alp.define('jse', _ => `
   <div class="flex flex-col h-full bg-base-100 overflow-hidden">
-    <div class="flex-1 min-h-0">
-      <div name="jse" class="w-full h-full"></div>
+    <div class="flex-1 overflow-hidden relative">
+      <div name="jse" class="absolute inset-0"></div>
     </div>
-    <div class="flex-none bg-base-300 text-xs p-2 flex items-center gap-2 border-t border-base-200">
+    <div class="flex bg-base-300 text-xs flex-shrink-0 p-2 items-center gap-2 border-t border-base-200">
       <template x-if="namespaces.length > 1">
         <select class="select select-xs w-auto min-w-0" @change="goNs($event.target.value)" x-model="ns">
           <template x-for="n in namespaces" :key="n">
@@ -33,6 +35,11 @@ alp.define('jse', _ => `
           </button>
         </div>
       </template>
+      <select class="select select-xs w-auto" x-model="mode" @change="jse?.updateProps({ mode })">
+        <option value="tree">Tree</option>
+        <option value="text">Text</option>
+        <option value="table">Table</option>
+      </select>
       <button class="btn btn-xs btn-error btn-outline" @click="delRecord()"><i class="ph ph-trash"></i></button>
       <button class="btn btn-xs btn-success btn-outline" @click="addRecord()"><i class="ph ph-plus"></i></button>
     </div>
@@ -44,42 +51,50 @@ alp.define('jse', _ => `
   records: [],
   ns: '',
   selected: '',
+  mode: 'tree',
   page: 0,
   pageSize: 20,
+
   get totalPages() { return Math.ceil(this.records.length / this.pageSize) || 1; },
   get pageRecords() {
     const start = this.page * this.pageSize;
     return this.records.slice(start, start + this.pageSize);
   },
+
   async nav() {
     this.jse ||= await alp.kit.jse({
       target: this.find('[name="jse"]'),
-      props: { content: { json: {} }, onChange: c => this.handleChange(c) }
+      props: { mode: this.mode, content: { json: {} }, onChange: c => this.handleChange(c) }
     });
     await this.refresh();
   },
+
   async refresh() {
     this.catalog = await alp.load();
     this.namespaces = Object.keys(this.catalog);
     const target = this.catalog[this.ns] ? this.ns : (this.namespaces[0] || 'alp');
     if (target !== this.ns || !this.records.length) await this.goNs(target);
   },
+
   async goNs(n) {
     this.ns = n;
     this.records = this.catalog[n] || [];
     this.page = 0;
     this.records.length ? await this.goRecord(this.records[0]) : this.jse?.set({ json: {} });
   },
+
   async goRecord(r) {
     this.selected = r.key;
     const data = await alp.loadRecord(r.key);
     await this.jse?.set({ json: data || {} });
   },
+
   async handleChange({ json }) {
     if (!this.selected) return;
     clearTimeout(this._save);
     this._save = setTimeout(() => alp.saveRecord(this.selected, json), 300);
   },
+
   async addRecord() {
     const name = prompt('Record name (namespace.key):');
     if (!name) return;
@@ -88,10 +103,12 @@ alp.define('jse', _ => `
     const r = this.records.find(x => x.key === name);
     if (r) await this.goRecord(r);
   },
+
   async delRecord() {
     if (!this.selected || !confirm(`Delete "${this.selected}"?`)) return;
     await alp.deleteRecord(this.selected);
     await this.refresh();
   }
 });
+
 console.log('📝 Alp JSE component loaded');
