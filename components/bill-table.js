@@ -68,7 +68,7 @@ alp.define('bill-table', _ => `
 
     // Initialize table if not already done
     if (!this.table) {
-      this.table = await alp.kit.tt({
+      this.table = await alp.kit.tb({
         target: this.find('[name="table"]'),
         layout: 'fitData',
         height: '300px',
@@ -250,7 +250,7 @@ alp.define('bill-table', _ => `
 
   // Download data as JSON
   downloadData() {
-    alp.kit.tt.downloadJson(this.table, { filename: 'wa-legislature-data' });
+    alp.kit.tb.downloadJson(this.table, { filename: 'wa-legislature-data' });
   },
 
   // Download visible rows as ZIP
@@ -265,7 +265,7 @@ alp.define('bill-table', _ => `
     this.downloadText = 'Preparing...';
 
     try {
-      await alp.kit.tt.downloadZip(this.table, {
+      await alp.kit.tb.downloadZip(this.table, {
         filename: 'wa-legislature-files.zip',
         fileMapper: d => {
           const urlHtm = d.urlXml.replace(/xml/gi, 'htm');
