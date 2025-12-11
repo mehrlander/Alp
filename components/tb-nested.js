@@ -18,6 +18,7 @@ alp.define('tb-nested', _ => `
       return;
     }
 
+    console.log('hello');
     const tb = tbEl._x_dataStack[0];
     tb.configure({
       columns: [
