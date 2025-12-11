@@ -16,7 +16,7 @@ alp.define('tb-demo', _ => `
 
     <!-- Nested alp-tb component -->
     <div class="flex-1 border border-base-300 rounded-lg overflow-hidden">
-      <alp-tb @tb-ready="onTableReady($event.detail)" @tb-cleared="onCleared()"></alp-tb>
+      <alp-tb name="table"></alp-tb>
     </div>
 
     <!-- Info panel -->
@@ -31,7 +31,10 @@ alp.define('tb-demo', _ => `
   tableReady: false,
 
   async nav() {
-    // Component initialization
+    // Set up event listeners on the nested alp-tb component
+    const tbEl = this.find('[name="table"]');
+    tbEl.addEventListener('tb-ready', e => this.onTableReady(e.detail));
+    tbEl.addEventListener('tb-cleared', () => this.onCleared());
   },
 
   // Handle table ready event
