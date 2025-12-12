@@ -38,8 +38,10 @@ alp.define('tb', _ => `
       height: '300px',
       columns: alp.kit.tb.buildColumns(this.columns)
     });
+    console.log("TABLE EXISTS??");
     this.table.on('dataFiltered', (f, rows) => this.rowCount = rows.length);
     this.table.on('dataLoaded', d => this.rowCount = d.length);
+    console.log("GOT EVENTS?");
     if (this.data.length) this.table.setData(this.data);
     console.log("NAV DONE");
   },
