@@ -85,7 +85,6 @@
         ]);
       })
       .then(() => {
-        console.log('⏳ Loading Alpine.js...');
         return js('https://unpkg.com/alpinejs@3');
       })
       .then(() => console.log('🎨 Alpine.js loaded'))
