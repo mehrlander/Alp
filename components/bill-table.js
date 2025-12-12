@@ -237,5 +237,3 @@ alp.define('bill-table', _ => `
     return this.table?.getRows('visible').map(r => r.getData()) || [];
   }
 });
-
-console.log('📊 Alp Bill Table loaded');
