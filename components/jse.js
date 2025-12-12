@@ -94,4 +94,3 @@ alp.define('jse', _ => `
     await this.refresh();
   }
 });
-console.log('📝 Alp JSE component loaded');
