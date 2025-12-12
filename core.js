@@ -161,7 +161,9 @@ const mk = (tagEnd, initState = {}) => {
       if (p) { this.path = p; this._path = p; }
       reg(this._path, this);
       if (this.host) this.host.data = this;
+      console.log("bf", this.nav);
       await this.nav?.();
+      console.log("af", this.nav);
       // Flush any pending proxy queue after nav completes
       if (this.host) {
         const queue = pendingProxies.get(this.host);
