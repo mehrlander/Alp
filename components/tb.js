@@ -86,5 +86,3 @@ alp.define('tb', _ => `
     }
   }
 });
-
-console.log('📊 Alp TB component loaded');
