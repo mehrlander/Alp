@@ -10,6 +10,8 @@ alp.define('tb-nested', _ => `
 `, {
   nav() {
     // find() returns proxy queue if component not ready - calls are queued and replayed on mount
+    const look = this.find('alp-tb');
+    console.log("look", look);
     this.find('alp-tb').configure({
       columns: [
         { title: 'ID', field: 'id' },
