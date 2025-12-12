@@ -64,6 +64,7 @@
       .then(() => {
         console.log('📦 Alp deps loaded');
         console.log('⏳ Importing core.js...');
+        console.log('Base:', BASE);
         return import(`${BASE}core.js`);
       })
       .then(({ alp }) => {
