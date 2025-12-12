@@ -72,4 +72,3 @@ wrap.innerHTML = `
   <alp-inspector></alp-inspector>
 `;
 document.body.appendChild(wrap);
-console.log('🔧 Alp Inspector loaded');
