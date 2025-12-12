@@ -8,10 +8,8 @@ alp.define('tb-nested', _ => `
     <alp-tb class="flex-1 border rounded"></alp-tb>
   </div>
 `, {
-  async nav() {
-    // find() returns proxy queue if component not ready - calls are queued and replayed on mount
-    const look = this.find('alp-tb');
-    console.log("look", look);
+  nav() {
+    // find() returns proxy queue if component not ready - calls are queued and replayed when ready()
     this.find('alp-tb').configure({
       columns: [
         { title: 'ID', field: 'id' },

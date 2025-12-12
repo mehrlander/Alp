@@ -49,17 +49,24 @@ const ping = (p, occasion, state) => {
 // Pending proxy queues for not-yet-ready alp components
 const pendingProxies = new WeakMap();
 
+// Promises waiting for components to be ready
+const readyPromises = new WeakMap();
+
 // Create a proxy that queues method calls until component is ready
 const createComponentProxy = (el) => {
-  const queue = [];
-  pendingProxies.set(el, queue);
+  // Reuse existing queue if present
+  let queue = pendingProxies.get(el);
+  if (!queue) {
+    queue = [];
+    pendingProxies.set(el, queue);
+  }
 
   return new Proxy({}, {
     get(_, method) {
       // Return a function that queues the call
       return (...args) => {
         // Check if component is now ready
-        if (el.data) {
+        if (el.data?._isReady) {
           // Execute directly
           const fn = el.data[method];
           return typeof fn === 'function' ? fn.apply(el.data, args) : fn;
@@ -69,6 +76,27 @@ const createComponentProxy = (el) => {
       };
     }
   });
+};
+
+// Get or create a promise that resolves when component is ready
+const getReadyPromise = (el) => {
+  if (!el) return Promise.resolve(null);
+
+  if (el.tagName.startsWith('ALP-')) {
+    // Already ready - resolve immediately
+    if (el.data?._isReady) return Promise.resolve(el.data);
+
+    // Create or return existing promise
+    let entry = readyPromises.get(el);
+    if (!entry) {
+      let resolve;
+      const promise = new Promise(r => resolve = r);
+      entry = { promise, resolve };
+      readyPromises.set(el, entry);
+    }
+    return entry.promise;
+  }
+  return Promise.resolve(el);
 };
 
 // Data operations
@@ -126,17 +154,48 @@ const mk = (tagEnd, initState = {}) => {
     path: defaultPath,
     _path: defaultPath,
 
+    _isReady: false,
+
     find(s) {
       const el = this.el?.querySelector(s);
       if (!el) return null;
       // Check if it's an alp component
       if (el.tagName.startsWith('ALP-')) {
         // If ready, return the component data
-        if (el.data) return el.data;
+        if (el.data?._isReady) return el.data;
         // Not ready yet, return a queuing proxy
         return createComponentProxy(el);
       }
       return el;
+    },
+
+    findReady(s) {
+      const el = this.el?.querySelector(s);
+      return getReadyPromise(el);
+    },
+
+    ready() {
+      if (this._isReady) return;
+      this._isReady = true;
+
+      if (this.host) {
+        // Flush pending proxy queue
+        const queue = pendingProxies.get(this.host);
+        if (queue) {
+          pendingProxies.delete(this.host);
+          queue.forEach(({ method, args }) => {
+            const fn = this[method];
+            if (typeof fn === 'function') fn.apply(this, args);
+          });
+        }
+
+        // Resolve any waiting promises
+        const entry = readyPromises.get(this.host);
+        if (entry) {
+          readyPromises.delete(this.host);
+          entry.resolve(this);
+        }
+      }
     },
     save(d) { return saveRecord(this._path, d); },
     load() { return loadRecord(this._path); },
@@ -163,18 +222,8 @@ const mk = (tagEnd, initState = {}) => {
       if (this.host) this.host.data = this;
       console.log("bf", this, this.nav);
       await this.nav?.();
-      console.log("af", this, this.nav);
-      // Flush any pending proxy queue after nav completes
-      if (this.host) {
-        const queue = pendingProxies.get(this.host);
-        if (queue) {
-          pendingProxies.delete(this.host);
-          queue.forEach(({ method, args }) => {
-            const fn = this[method];
-            if (typeof fn === 'function') fn.apply(this, args);
-          });
-        }
-      }
+      // Auto-ready if component didn't call ready() explicitly
+      if (!this._isReady) this.ready();
     }
   };
 };
@@ -199,11 +248,17 @@ const globalFind = (s) => {
   // Check if it's an alp component
   if (el.tagName.startsWith('ALP-')) {
     // If ready, return the component data
-    if (el.data) return el.data;
+    if (el.data?._isReady) return el.data;
     // Not ready yet, return a queuing proxy
     return createComponentProxy(el);
   }
   return el;
+};
+
+// Global findReady function - returns promise that resolves when component is ready
+const globalFindReady = (s) => {
+  const el = document.querySelector(s);
+  return getReadyPromise(el);
 };
 
 // Core API
@@ -215,6 +270,7 @@ export const alp = {
   fills,
   kit,
   find: globalFind,
+  findReady: globalFindReady,
   mk: (tagEnd) => mk(tagEnd, defs[tagEnd]?.initState || {})
 };
 
