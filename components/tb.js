@@ -40,6 +40,7 @@ alp.define('tb', _ => `
     this.table.on('dataFiltered', (f, rows) => this.rowCount = rows.length);
     this.table.on('dataLoaded', d => this.rowCount = d.length);
     if (this.data.length) this.table.setData(this.data);
+    console.log("NAV DONE");
   },
 
   configure({ columns, data, zipMapper }) {
