@@ -213,5 +213,3 @@ alp.define('bill-table-nested', _ => `
     return this.tbRef?.getVisibleData() || [];
   }
 });
-
-console.log('📊 Alp Bill Table Nested loaded');
