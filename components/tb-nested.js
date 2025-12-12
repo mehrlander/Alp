@@ -24,5 +24,3 @@ alp.define('tb-nested', _ => `
     });
   }
 });
-
-console.log('tb-nested loaded');
