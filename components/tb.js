@@ -43,8 +43,6 @@ alp.define('tb', _ => `
   },
 
   configure({ columns, data, zipMapper }) {
-    console.log(columns, data, zipMapper);
-    console.log("Table:", this.table);
     if (columns) this.columns = columns;
     if (zipMapper) this.zipMapper = zipMapper;
     if (data) this.setData(data);
