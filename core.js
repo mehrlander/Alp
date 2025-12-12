@@ -52,7 +52,7 @@ const pendingProxies = new WeakMap();
 // Promises waiting for components to be ready
 const readyPromises = new WeakMap();
 
-// Create a proxy that queues method calls until component is ready
+// Create a thenable proxy that queues method calls until component is ready
 const createComponentProxy = (el) => {
   // Reuse existing queue if present
   let queue = pendingProxies.get(el);
@@ -63,6 +63,10 @@ const createComponentProxy = (el) => {
 
   return new Proxy({}, {
     get(_, method) {
+      // Make proxy thenable for await support
+      if (method === 'then') {
+        return (resolve, reject) => getReadyPromise(el).then(resolve, reject);
+      }
       // Return a function that queues the call
       return (...args) => {
         // Check if component is now ready
@@ -163,15 +167,10 @@ const mk = (tagEnd, initState = {}) => {
       if (el.tagName.startsWith('ALP-')) {
         // If ready, return the component data
         if (el.data?._isReady) return el.data;
-        // Not ready yet, return a queuing proxy
+        // Not ready yet, return a thenable queuing proxy
         return createComponentProxy(el);
       }
       return el;
-    },
-
-    findReady(s) {
-      const el = this.el?.querySelector(s);
-      return getReadyPromise(el);
     },
 
     ready() {
@@ -248,16 +247,10 @@ const globalFind = (s) => {
   if (el.tagName.startsWith('ALP-')) {
     // If ready, return the component data
     if (el.data?._isReady) return el.data;
-    // Not ready yet, return a queuing proxy
+    // Not ready yet, return a thenable queuing proxy
     return createComponentProxy(el);
   }
   return el;
-};
-
-// Global findReady function - returns promise that resolves when component is ready
-const globalFindReady = (s) => {
-  const el = document.querySelector(s);
-  return getReadyPromise(el);
 };
 
 // Core API
@@ -269,7 +262,6 @@ export const alp = {
   fills,
   kit,
   find: globalFind,
-  findReady: globalFindReady,
   mk: (tagEnd) => mk(tagEnd, defs[tagEnd]?.initState || {})
 };
 
