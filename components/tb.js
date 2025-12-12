@@ -31,18 +31,24 @@ alp.define('tb', _ => `
   data: [],
 
   async nav() {
+    console.log("NAV START");
     this.table = await alp.kit.tb({
       target: this.find('[name="table"]'),
       layout: 'fitData',
       height: '300px',
       columns: alp.kit.tb.buildColumns(this.columns)
     });
+    console.log("TABLE EXISTS??");
     this.table.on('dataFiltered', (f, rows) => this.rowCount = rows.length);
     this.table.on('dataLoaded', d => this.rowCount = d.length);
+    console.log("GOT EVENTS?");
     if (this.data.length) this.table.setData(this.data);
+    console.log("NAV DONE");
   },
 
   configure({ columns, data, zipMapper }) {
+    console.log(columns, data, zipMapper);
+    console.log("Table:", this.table);
     if (columns) this.columns = columns;
     if (zipMapper) this.zipMapper = zipMapper;
     if (data) this.setData(data);
