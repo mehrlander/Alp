@@ -71,18 +71,15 @@
         window.alp.bind(alp);
         window.alp.kit.bind(alp.kit);
         window.alp.fills.bind(alp.fills); 
-        console.log('⏳ Importing components/index.js...');
         return import(`${BASE}components/index.js`).then(({ components }) => {
           console.log('✅ components/index.js imported', components);
           return { alp, components };
         });
       })
       .then(({ alp, components }) => {
-        console.log('⏳ Storing sources & loading components...');
         return Promise.all([
           storeSources(alp.db, components),
           ...components.map(c => {
-            console.log(`⏳ Importing ${c}...`);
             return import(`${BASE}components/${c}`).then(() => console.log(`✅ ${c} loaded`));
           })
         ]);
