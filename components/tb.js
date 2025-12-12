@@ -31,6 +31,7 @@ alp.define('tb', _ => `
   data: [],
 
   async nav() {
+    console.log("NAV START");
     this.table = await alp.kit.tb({
       target: this.find('[name="table"]'),
       layout: 'fitData',
