@@ -220,7 +220,6 @@ const mk = (tagEnd, initState = {}) => {
       if (p) { this.path = p; this._path = p; }
       reg(this._path, this);
       if (this.host) this.host.data = this;
-      console.log("bf", this, this.nav);
       await this.nav?.();
       // Auto-ready if component didn't call ready() explicitly
       if (!this._isReady) this.ready();
