@@ -5,22 +5,12 @@ import { alp } from '../core.js';
 alp.define('tb-nested', _ => `
   <div class="flex flex-col h-full bg-base-100 p-4 gap-3 text-sm">
     <div class="text-lg font-semibold">Nested Table Example</div>
-    <alp-tb x-ref="tb" class="flex-1 border rounded"></alp-tb>
+    <alp-tb class="flex-1 border rounded"></alp-tb>
   </div>
 `, {
-  async nav() {
-    // Wait for nested component to be ready
-    await this.$nextTick();
-
-    const tbEl = this.$refs.tb;
-    if (!tbEl?._x_dataStack) {
-      console.log('tb-nested: nested tb not ready');
-      return;
-    }
-
-    console.log('hello');
-    const tb = tbEl._x_dataStack[0];
-    tb.configure({
+  nav() {
+    // find() returns proxy queue if component not ready - calls are queued and replayed on mount
+    this.find('alp-tb').configure({
       columns: [
         { title: 'ID', field: 'id' },
         { title: 'Name', field: 'name' },
