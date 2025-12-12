@@ -153,16 +153,17 @@ const mk = (tagEnd, initState = {}) => {
       return this.nav?.();
     },
 
-    mount(el) {
+    async mount(el) {
       this.el = el;
       this.host = el.closest(`alp-${tagEnd}`);
       this.host?.classList.add('block', 'h-full');
       const p = this.host?.getAttribute('path');
       if (p) { this.path = p; this._path = p; }
       reg(this._path, this);
+      if (this.host) this.host.data = this;
+      await this.nav?.();
+      // Flush any pending proxy queue after nav completes
       if (this.host) {
-        this.host.data = this;
-        // Flush any pending proxy queue
         const queue = pendingProxies.get(this.host);
         if (queue) {
           pendingProxies.delete(this.host);
@@ -172,7 +173,6 @@ const mk = (tagEnd, initState = {}) => {
           });
         }
       }
-      return this.nav?.();
     }
   };
 };
