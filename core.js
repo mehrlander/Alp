@@ -46,6 +46,31 @@ const ping = (p, occasion, state) => {
   s.forEach(x => x.onPing?.(occasion, state));
 };
 
+// Pending proxy queues for not-yet-ready alp components
+const pendingProxies = new WeakMap();
+
+// Create a proxy that queues method calls until component is ready
+const createComponentProxy = (el) => {
+  const queue = [];
+  pendingProxies.set(el, queue);
+
+  return new Proxy({}, {
+    get(_, method) {
+      // Return a function that queues the call
+      return (...args) => {
+        // Check if component is now ready
+        if (el.data) {
+          // Execute directly
+          const fn = el.data[method];
+          return typeof fn === 'function' ? fn.apply(el.data, args) : fn;
+        }
+        // Queue for later execution
+        queue.push({ method, args });
+      };
+    }
+  });
+};
+
 // Data operations
 const load = () => db.alp.toArray().then(rs => rs.reduce((m, { name, data }) => {
   const [store, ...rest] = name.split('.');
@@ -101,7 +126,18 @@ const mk = (tagEnd, initState = {}) => {
     path: defaultPath,
     _path: defaultPath,
 
-    find(s) { return this.el?.querySelector(s); },
+    find(s) {
+      const el = this.el?.querySelector(s);
+      if (!el) return null;
+      // Check if it's an alp component
+      if (el.tagName.startsWith('ALP-')) {
+        // If ready, return the component data
+        if (el.data) return el.data;
+        // Not ready yet, return a queuing proxy
+        return createComponentProxy(el);
+      }
+      return el;
+    },
     save(d) { return saveRecord(this._path, d); },
     load() { return loadRecord(this._path); },
     del() { return deleteRecord(this._path); },
@@ -124,7 +160,18 @@ const mk = (tagEnd, initState = {}) => {
       const p = this.host?.getAttribute('path');
       if (p) { this.path = p; this._path = p; }
       reg(this._path, this);
-      this.host && (this.host.data = this);
+      if (this.host) {
+        this.host.data = this;
+        // Flush any pending proxy queue
+        const queue = pendingProxies.get(this.host);
+        if (queue) {
+          pendingProxies.delete(this.host);
+          queue.forEach(({ method, args }) => {
+            const fn = this[method];
+            if (typeof fn === 'function') fn.apply(this, args);
+          });
+        }
+      }
       return this.nav?.();
     }
   };
@@ -143,6 +190,20 @@ const define = (tagEnd, tplFn, initState = {}) => {
   customElements.define(`alp-${tagEnd}`, C);
 };
 
+// Global find function (searches document instead of component)
+const globalFind = (s) => {
+  const el = document.querySelector(s);
+  if (!el) return null;
+  // Check if it's an alp component
+  if (el.tagName.startsWith('ALP-')) {
+    // If ready, return the component data
+    if (el.data) return el.data;
+    // Not ready yet, return a queuing proxy
+    return createComponentProxy(el);
+  }
+  return el;
+};
+
 // Core API
 const core = { db, pathRegistry, consoleLogs, load, loadRecord, saveRecord, deleteRecord, safeStore, define, ping };
 
@@ -151,6 +212,7 @@ export const alp = {
   ...core,
   fills,
   kit,
+  find: globalFind,
   mk: (tagEnd) => mk(tagEnd, defs[tagEnd]?.initState || {})
 };
 
