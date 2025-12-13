@@ -10,21 +10,10 @@
   <h1 class="text-xl font-bold mb-4">TB (Tabulator) Component Demo</h1>
   <p class="text-sm mb-4">A generic table component with search, JSON export, and optional zip download.</p>
   <div class="border rounded-lg overflow-hidden bg-base-100">
-    <alp-tb path="demo.tb" x-init="$nextTick(() => {
-      const check = setInterval(() => {
-        if ($el.data?.configure) {
-          $el.data.configure({
-            columns: ['name', 'age', 'city'],
-            data: [
-              { name: 'Alice', age: 30, city: 'Seattle' },
-              { name: 'Bob', age: 25, city: 'Portland' },
-              { name: 'Carol', age: 35, city: 'Vancouver' }
-            ]
-          });
-          clearInterval(check);
-        }
-      }, 100);
-    })"></alp-tb>
+    <alp-tb path="demo.tb"
+      columns='["name", "age", "city"]'
+      data='[{"name": "Alice", "age": 30, "city": "Seattle"}, {"name": "Bob", "age": 25, "city": "Portland"}, {"name": "Carol", "age": 35, "city": "Vancouver"}]'
+    ></alp-tb>
   </div>
 </body>
 </html>
