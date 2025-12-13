@@ -40,10 +40,10 @@ const notify = (p, data, del = 0) => {
     : (x.savedCallback ? x.savedCallback(data) : x.nav?.())
   );
 };
-const ping = (p, occasion, state) => {
+const ping = (p, data, occasion = 'data') => {
   const s = pathRegistry[p];
   if (!s) return;
-  s.forEach(x => x.onPing?.(occasion, state));
+  s.forEach(x => x.onPing?.(occasion, data));
 };
 
 // Pending proxy queues for not-yet-ready alp components
@@ -173,7 +173,7 @@ const mk = (tagEnd, initState = {}) => {
       return el;
     },
 
-    ready() {
+    declareReady() {
       if (this._isReady) return;
       this._isReady = true;
 
@@ -194,12 +194,18 @@ const mk = (tagEnd, initState = {}) => {
           readyPromises.delete(this.host);
           entry.resolve(this);
         }
+
+        // Auto-ping with host attributes on ready
+        const attrs = {};
+        for (const attr of this.host.attributes) {
+          attrs[attr.name] = attr.value;
+        }
+        ping(this._path, attrs, 'ready');
       }
     },
     save(d) { return saveRecord(this._path, d); },
     load() { return loadRecord(this._path); },
     del() { return deleteRecord(this._path); },
-    ping(occasion) { return ping(this._path, occasion, this); },
 
     usePath(p) {
       p = (p ?? '').trim() || this.defaultPath;
@@ -220,8 +226,8 @@ const mk = (tagEnd, initState = {}) => {
       reg(this._path, this);
       if (this.host) this.host.data = this;
       await this.nav?.();
-      // Auto-ready if component didn't call ready() explicitly
-      if (!this._isReady) this.ready();
+      // Auto-ready if component didn't call declareReady() explicitly
+      if (!this._isReady) this.declareReady();
     }
   };
 };

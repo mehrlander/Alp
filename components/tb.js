@@ -42,6 +42,20 @@ alp.define('tb', _ => `
     if (this.data.length) this.table.setData(this.data);
   },
 
+  onPing(occasion, data) {
+    if (occasion === 'ready') {
+      // Parse configuration from host attributes
+      const config = {};
+      if (data.columns) {
+        try { config.columns = JSON.parse(data.columns); } catch {}
+      }
+      if (data.data) {
+        try { config.data = JSON.parse(data.data); } catch {}
+      }
+      if (Object.keys(config).length) this.configure(config);
+    }
+  },
+
   configure({ columns, data, zipMapper }) {
     if (columns) this.columns = columns;
     if (zipMapper) this.zipMapper = zipMapper;

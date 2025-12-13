@@ -37,8 +37,29 @@ Components subscribe to paths for reactive updates:
 reg(path, subscriber)    // Subscribe
 unreg(path, subscriber)  // Unsubscribe
 notify(path, data, del)  // Triggers savedCallback or deletedCallback
-ping(path, occasion, state)  // Triggers onPing for custom events
+ping(path, data, occasion?)  // Triggers onPing(occasion, data) - occasion defaults to 'data'
 ```
+
+### Ping System
+
+The ping system allows external code to send data to components by path:
+
+```js
+// Send data to a component
+alp.ping('my.path', { key: 'value' });  // occasion defaults to 'data'
+alp.ping('my.path', { key: 'value' }, 'custom');  // custom occasion
+
+// Component receives via onPing
+onPing(occasion, data) {
+  if (occasion === 'ready') {
+    // Handle ready ping with host attributes
+  }
+}
+```
+
+When a component calls `declareReady()`, it automatically pings its own path with:
+- `occasion`: `'ready'`
+- `data`: object containing all host element attributes
 
 ## Defining Components
 
