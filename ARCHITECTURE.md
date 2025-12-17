@@ -77,7 +77,7 @@ alp.define('my-thing', path => `
   value: '',
 
   // Called after mount, and when path data changes
-  async nav() {
+  async sync() {
     const data = await this.load();
     if (data) this.value = data.value;
   },
@@ -104,13 +104,13 @@ Use in HTML:
 |----------------|-------------|
 | `el` | The Alpine root element |
 | `host` | The `<alp-*>` custom element |
-| `path` / `_path` | Current storage path |
+| `path` | Current storage path (getter/setter - setting triggers sync) |
+| `_path` | Internal path storage |
 | `find(selector)` | querySelector within el |
 | `save(data)` | Save to current path |
 | `load()` | Load from current path |
 | `del()` | Delete current path |
-| `usePath(p)` | Switch to new path (triggers nav) |
-| `nav()` | Override: called on mount and path changes |
+| `sync()` | Override: called on mount and path changes |
 
 ## Fills (Template Helpers)
 

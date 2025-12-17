@@ -50,7 +50,7 @@ alp.define('bill-table-nested', _ => `
   get types() { return alp.kit.leg.types; },
 
   // Initialize component
-  async nav() {
+  async sync() {
     // Wait for Alpine to process the nested component
     await this.$nextTick();
 

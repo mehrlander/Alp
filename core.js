@@ -36,7 +36,7 @@ const ping = (p, data, occasion = 'data') => {
   const s = pathRegistry[p];
   if (!s) return;
   s.forEach(x => {
-    x.nav?.();
+    x.sync?.();
     if (occasion === 'save-record') x.savedCallback?.(data);
     else if (occasion === 'delete-record') x.deletedCallback?.();
     x.onPing?.(occasion, data);
@@ -160,8 +160,20 @@ const mk = (tagEnd, initState = {}) => {
     el: null,
     host: null,
     defaultPath,
-    path: defaultPath,
     _path: defaultPath,
+
+    get path() { return this._path; },
+    set path(p) {
+      p = (p ?? '').trim() || this.defaultPath;
+      if (p === this._path) {
+        this.sync?.();
+        return;
+      }
+      unreg(this._path, this);
+      this._path = p;
+      reg(this._path, this);
+      this.sync?.();
+    },
 
     _isReady: false,
 
@@ -212,25 +224,15 @@ const mk = (tagEnd, initState = {}) => {
     load() { return loadRecord(this._path); },
     del() { return deleteRecord(this._path); },
 
-    usePath(p) {
-      p = (p ?? '').trim() || this.defaultPath;
-      this.path = p;
-      if (p === this._path) return this.nav?.();
-      unreg(this._path, this);
-      this._path = p;
-      reg(this._path, this);
-      return this.nav?.();
-    },
-
     async mount(el) {
       this.el = el;
       this.host = el.closest(`alp-${tagEnd}`);
       this.host?.classList.add('block', 'h-full');
-      const p = this.host?.getAttribute('path');
-      if (p) { this.path = p; this._path = p; }
+      const p = this.host?.getAttribute('path')?.trim();
+      if (p) this._path = p;
       reg(this._path, this);
       if (this.host) this.host.data = this;
-      await this.nav?.();
+      await this.sync?.();
       // Auto-ready if component didn't call declareReady() explicitly
       if (!this._isReady) this.declareReady();
     }

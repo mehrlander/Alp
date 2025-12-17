@@ -56,7 +56,7 @@ alp.define('bill-table', _ => `
   get types() { return alp.kit.leg.types; },
 
   // Initialize component
-  async nav() {
+  async sync() {
     // Initialize table if not already done
     if (!this.table) {
       this.table = await alp.kit.tb({
