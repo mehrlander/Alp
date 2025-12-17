@@ -32,18 +32,15 @@ const unreg = (p, x) => {
   s.delete(x);
   if (!s.size) delete pathRegistry[p];
 };
-const notify = (p, data, del = 0) => {
-  const s = pathRegistry[p];
-  if (!s) return;
-  s.forEach(x => del
-    ? (x.deletedCallback ? x.deletedCallback() : x.nav?.())
-    : (x.savedCallback ? x.savedCallback(data) : x.nav?.())
-  );
-};
 const ping = (p, data, occasion = 'data') => {
   const s = pathRegistry[p];
   if (!s) return;
-  s.forEach(x => x.onPing?.(occasion, data));
+  s.forEach(x => {
+    x.nav?.();
+    if (occasion === 'save-record') x.savedCallback?.(data);
+    else if (occasion === 'delete-record') x.deletedCallback?.();
+    x.onPing?.(occasion, data);
+  });
 };
 
 // Pending proxy queues for not-yet-ready alp components
@@ -114,12 +111,12 @@ const loadRecord = name => db.alp.get(name).then(r => r?.data);
 
 const saveRecord = (name, data) => db.alp.put({ name, data }).then(() => {
   console.log(`💾 ${name}:`, data);
-  notify(name, data, 0);
+  ping(name, data, 'save-record');
 });
 
 const deleteRecord = name => db.alp.delete(name).then(() => {
   console.log(`🗑️ ${name}`);
-  notify(name, null, 1);
+  ping(name, null, 'delete-record');
 });
 
 const safeStore = (s, map) => map[s] ? s : (Object.keys(map)[0] || 'alp');
