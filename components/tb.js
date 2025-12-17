@@ -30,7 +30,7 @@ alp.define('tb', _ => `
   columns: [],
   data: [],
 
-  async nav() {
+  async sync() {
     this.table = await alp.kit.tb({
       target: this.find('[name="table"]'),
       layout: 'fitData',

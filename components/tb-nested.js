@@ -8,7 +8,7 @@ alp.define('tb-nested', _ => `
     <alp-tb class="flex-1 border rounded"></alp-tb>
   </div>
 `, {
-  nav() {
+  sync() {
     // find() returns proxy queue if component not ready - calls are queued and replayed when ready()
     this.find('alp-tb').configure({
       columns: [

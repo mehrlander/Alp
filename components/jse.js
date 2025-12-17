@@ -51,7 +51,7 @@ alp.define('jse', _ => `
     const start = this.page * this.pageSize;
     return this.records.slice(start, start + this.pageSize);
   },
-  async nav() {
+  async sync() {
     this.jse ||= await alp.kit.jse({
       target: this.find('[name="jse"]'),
       props: { content: { json: {} }, onChange: c => this.handleChange(c) }

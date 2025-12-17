@@ -17,8 +17,8 @@ const txt = mods => [
 
 export const fills = {
   pathInput: () => `
-    <input x-model="path"
-      @blur="usePath(path)"
+    <input x-model="_path"
+      @blur="path = $el.value"
       @keydown.enter.prevent="$el.blur()"
       class="input input-xs input-ghost text-xs text-right w-48"
       placeholder="path">`,
