@@ -41,6 +41,14 @@ const ping = (p, data, occasion = 'data') => {
     else if (occasion === 'delete-record') x.deletedCallback?.();
     x.onPing?.(occasion, data);
   });
+
+  // Notify inspector on record changes
+  if (occasion === 'save-record' || occasion === 'delete-record') {
+    const inspector = globalFind('alp-inspector');
+    if (inspector?.onPing) {
+      inspector.onPing(occasion, { path: p, data });
+    }
+  }
 };
 
 // Pending proxy queues for not-yet-ready alp components
