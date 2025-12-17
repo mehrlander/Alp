@@ -59,6 +59,11 @@ alp.define('inspector', _ => modal(`
   async clear() {
     await alp.deleteRecord(this.selected);
     await this.refresh();
+  },
+  onPing(occasion, payload) {
+    if (occasion === 'save-record' || occasion === 'delete-record') {
+      this.refresh();
+    }
   }
 });
 
