@@ -36,8 +36,7 @@ Components subscribe to paths for reactive updates:
 ```js
 reg(path, subscriber)    // Subscribe
 unreg(path, subscriber)  // Unsubscribe
-notify(path, data, del)  // Triggers savedCallback or deletedCallback
-ping(path, data, occasion?)  // Triggers onPing(occasion, data) - occasion defaults to 'data'
+ping(path, data, occasion?)  // Triggers sync() and onPing(occasion, data) - occasion defaults to 'data'
 ```
 
 ### Ping System
@@ -51,11 +50,20 @@ alp.ping('my.path', { key: 'value' }, 'custom');  // custom occasion
 
 // Component receives via onPing
 onPing(occasion, data) {
+  if (occasion === 'save-record' || occasion === 'delete-record') {
+    // Handle record changes - reload data if needed
+  }
   if (occasion === 'ready') {
     // Handle ready ping with host attributes
   }
 }
 ```
+
+Built-in occasions:
+- `'data'`: Default occasion for general pings
+- `'ready'`: Sent when component calls `declareReady()`, with host attributes as data
+- `'save-record'`: Sent after `saveRecord()` completes, with saved data
+- `'delete-record'`: Sent after `deleteRecord()` completes
 
 When a component calls `declareReady()`, it automatically pings its own path with:
 - `occasion`: `'ready'`

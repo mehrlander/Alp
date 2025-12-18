@@ -30,7 +30,7 @@
       </div>
     `, {
       text: '',
-      async nav() {
+      async sync() {
         const data = await this.load();
         this.text = data?.text || '';
       }
@@ -49,7 +49,7 @@
       </div>
     `, {
       table: null,
-      async nav() {
+      async sync() {
         await this.loadTable();
       },
       async loadTable() {
@@ -76,8 +76,10 @@
           );
         }
       },
-      savedCallback(data) {
-        this.loadTable();
+      onPing(occasion, data) {
+        if (occasion === 'save-record' || occasion === 'delete-record') {
+          this.loadTable();
+        }
       },
       addRow() {
         this.table?.addRow({});
