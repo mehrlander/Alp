@@ -35,10 +35,7 @@ const unreg = (p, x) => {
 const ping = (p, data, occasion = 'data') => {
   const s = pathRegistry[p];
   if (!s) return;
-  s.forEach(x => {
-    x.sync?.();
-    x.onPing?.(occasion, data);
-  });
+  s.forEach(x => x.onPing?.(occasion, data));
 
   // Notify inspector on record changes
   if (occasion === 'save-record' || occasion === 'delete-record') {
@@ -164,13 +161,13 @@ const mk = (tagEnd, initState = {}) => {
     set path(p) {
       p = (p ?? '').trim() || this.defaultPath;
       if (p === this._path) {
-        this.sync?.();
+        this.onPing?.('path');
         return;
       }
       unreg(this._path, this);
       this._path = p;
       reg(this._path, this);
-      this.sync?.();
+      this.onPing?.('path');  // fire-and-forget, internal
     },
 
     _isReady: false,
@@ -230,8 +227,9 @@ const mk = (tagEnd, initState = {}) => {
       if (p) this._path = p;
       reg(this._path, this);
       if (this.host) this.host.data = this;
-      await this.sync?.();
-      // Auto-ready if component didn't call declareReady() explicitly
+
+      await this.onPing?.('mount');  // awaited - init must complete
+
       if (!this._isReady) this.declareReady();
     }
   };

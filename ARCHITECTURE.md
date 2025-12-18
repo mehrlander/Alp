@@ -36,38 +36,63 @@ Components subscribe to paths for reactive updates:
 ```js
 reg(path, subscriber)    // Subscribe
 unreg(path, subscriber)  // Unsubscribe
-ping(path, data, occasion?)  // Triggers sync() and onPing(occasion, data) - occasion defaults to 'data'
+ping(path, data, occasion?)  // Triggers onPing(occasion, data) - occasion defaults to 'data'
 ```
 
-### Ping System
+### Ping System (Unified Event Model)
 
-The ping system allows external code to send data to components by path:
+All component lifecycle and data events flow through a single `onPing(occasion, data)` handler. This eliminates the need for separate lifecycle methods and creates a unified communication model.
+
+```js
+// Component handles all events via onPing
+async onPing(occasion, data) {
+  switch (occasion) {
+    case 'mount':
+      // Initialize component (awaited by mount())
+      this.widget = await this.createWidget();
+      break;
+    case 'path':
+      // Path changed, reload data
+      const record = await this.load();
+      this.applyData(record);
+      break;
+    case 'save-record':
+      // Another component saved to our path
+      this.applyData(data);
+      break;
+    case 'delete-record':
+      // Record at our path was deleted
+      this.clear();
+      break;
+    case 'ready':
+      // Component declared ready, configure from attrs
+      this.configureFromAttrs(data);
+      break;
+  }
+}
+```
+
+#### Occasion Reference
+
+| Occasion | Source | Data | Awaited? |
+|----------|--------|------|----------|
+| `'mount'` | `mount()` | - | Yes |
+| `'path'` | path setter | - | No |
+| `'save-record'` | `saveRecord` → `ping` | saved record | No |
+| `'delete-record'` | `deleteRecord` → `ping` | - | No |
+| `'ready'` | `declareReady` → `ping` | host attrs | No |
+| `'data'` | `alp.ping()` default | anything | No |
+| custom | `alp.ping()` | anything | No |
+
+**Key insight**: `'mount'` is the only awaited occasion because initialization must complete before `declareReady()`. Everything else is fire-and-forget notification.
+
+#### External Pings
 
 ```js
 // Send data to a component
 alp.ping('my.path', { key: 'value' });  // occasion defaults to 'data'
 alp.ping('my.path', { key: 'value' }, 'custom');  // custom occasion
-
-// Component receives via onPing
-onPing(occasion, data) {
-  if (occasion === 'save-record' || occasion === 'delete-record') {
-    // Handle record changes - reload data if needed
-  }
-  if (occasion === 'ready') {
-    // Handle ready ping with host attributes
-  }
-}
 ```
-
-Built-in occasions:
-- `'data'`: Default occasion for general pings
-- `'ready'`: Sent when component calls `declareReady()`, with host attributes as data
-- `'save-record'`: Sent after `saveRecord()` completes, with saved data
-- `'delete-record'`: Sent after `deleteRecord()` completes
-
-When a component calls `declareReady()`, it automatically pings its own path with:
-- `occasion`: `'ready'`
-- `data`: object containing all host element attributes
 
 ## Defining Components
 
@@ -84,10 +109,12 @@ alp.define('my-thing', path => `
   // Initial state
   value: '',
 
-  // Called after mount, and when path data changes
-  async sync() {
-    const data = await this.load();
-    if (data) this.value = data.value;
+  // Unified event handler - called for all lifecycle events
+  async onPing(occasion) {
+    if (occasion === 'mount' || occasion === 'path') {
+      const data = await this.load();
+      if (data) this.value = data.value;
+    }
   },
 
   doStuff() {
@@ -112,13 +139,14 @@ Use in HTML:
 |----------------|-------------|
 | `el` | The Alpine root element |
 | `host` | The `<alp-*>` custom element |
-| `path` | Current storage path (getter/setter - setting triggers sync) |
+| `path` | Current storage path (getter/setter - setting triggers `onPing('path')`) |
 | `_path` | Internal path storage |
 | `find(selector)` | querySelector within el |
 | `save(data)` | Save to current path |
 | `load()` | Load from current path |
 | `del()` | Delete current path |
-| `sync()` | Override: called on mount and path changes |
+| `onPing(occasion, data)` | Override: unified handler for all lifecycle events |
+| `declareReady()` | Signals initialization complete |
 
 ## Fills (Template Helpers)
 

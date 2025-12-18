@@ -30,29 +30,30 @@ alp.define('tb', _ => `
   columns: [],
   data: [],
 
-  async sync() {
-    this.table = await alp.kit.tb({
-      target: this.find('[name="table"]'),
-      layout: 'fitData',
-      height: '300px',
-      columns: alp.kit.tb.buildColumns(this.columns)
-    });
-    this.table.on('dataFiltered', (f, rows) => this.rowCount = rows.length);
-    this.table.on('dataLoaded', d => this.rowCount = d.length);
-    if (this.data.length) this.table.setData(this.data);
-  },
-
-  onPing(occasion, data) {
-    if (occasion === 'ready') {
-      // Parse configuration from host attributes
-      const config = {};
-      if (data.columns) {
-        try { config.columns = JSON.parse(data.columns); } catch {}
-      }
-      if (data.data) {
-        try { config.data = JSON.parse(data.data); } catch {}
-      }
-      if (Object.keys(config).length) this.configure(config);
+  async onPing(occasion, data) {
+    switch (occasion) {
+      case 'mount':
+        this.table = await alp.kit.tb({
+          target: this.find('[name="table"]'),
+          layout: 'fitData',
+          height: '300px',
+          columns: alp.kit.tb.buildColumns(this.columns)
+        });
+        this.table.on('dataFiltered', (f, rows) => this.rowCount = rows.length);
+        this.table.on('dataLoaded', d => this.rowCount = d.length);
+        if (this.data.length) this.table.setData(this.data);
+        break;
+      case 'ready':
+        // Parse configuration from host attributes
+        const config = {};
+        if (data.columns) {
+          try { config.columns = JSON.parse(data.columns); } catch {}
+        }
+        if (data.data) {
+          try { config.data = JSON.parse(data.data); } catch {}
+        }
+        if (Object.keys(config).length) this.configure(config);
+        break;
     }
   },
 
