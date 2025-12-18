@@ -30,9 +30,9 @@
       </div>
     `, {
       text: '',
-      async onPing(occasion) {
-        if (occasion === 'mount' || occasion === 'path') {
-          const record = await this.load();
+      async onPing(occasion, data) {
+        if (occasion === 'mount' || occasion === 'path' || occasion === 'save-record') {
+          const record = data ?? await this.load();
           this.text = record?.text || '';
         }
       }
