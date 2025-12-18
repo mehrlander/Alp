@@ -49,49 +49,51 @@ alp.define('bill-table-nested', _ => `
   get bienniums() { return alp.kit.leg.bienniums; },
   get types() { return alp.kit.leg.types; },
 
-  // Initialize component
-  async sync() {
-    // Wait for Alpine to process the nested component
-    await this.$nextTick();
+  // Handle all lifecycle events
+  async onPing(occasion) {
+    if (occasion === 'mount') {
+      // Wait for Alpine to process the nested component
+      await this.$nextTick();
 
-    // Get reference to the nested tb component
-    const tbEl = this.$refs.tb;
-    if (tbEl && tbEl._x_dataStack) {
-      this.tbRef = tbEl._x_dataStack[0];
+      // Get reference to the nested tb component
+      const tbEl = this.$refs.tb;
+      if (tbEl && tbEl._x_dataStack) {
+        this.tbRef = tbEl._x_dataStack[0];
 
-      // Configure the tb component with bill-specific columns
-      this.tbRef.configure({
-        columns: [
-          { title: 'Doc Id', field: 'docId' },
-          { title: 'Bill Id', field: 'billId' },
-          { title: 'Bill No', field: 'billNo' },
-          { title: 'Name', field: 'name' },
-          { title: 'File Name', field: 'fileName' },
-          { title: 'Date', field: 'date', sorter: 'datetime', sorterParams: { format: 'yyyy-MM-dd' } },
-          { title: 'Size', field: 'size' },
-          { title: 'Compressed', field: 'compressedSize' },
-          { title: 'Chamber', field: 'chamber' },
-          { title: 'Biennium', field: 'biennium' },
-          { title: 'Kind', field: 'kind' },
-          { title: 'Total $', field: 'totalDollarAmount', formatter: 'money', formatterParams: { thousand: ',', precision: 0 } },
-          { title: 'Description', field: 'description' }
-        ],
-        zipMapper: d => {
-          const urlHtm = d.urlXml.replace(/xml/gi, 'htm');
-          const basePath = `${d.biennium}/${d.kind}/${d.chamber}/${d.name}`;
-          return [
-            { path: `${basePath}.xml`, url: d.urlXml },
-            { path: `${basePath}.htm`, url: urlHtm }
-          ];
-        }
-      });
-    }
+        // Configure the tb component with bill-specific columns
+        this.tbRef.configure({
+          columns: [
+            { title: 'Doc Id', field: 'docId' },
+            { title: 'Bill Id', field: 'billId' },
+            { title: 'Bill No', field: 'billNo' },
+            { title: 'Name', field: 'name' },
+            { title: 'File Name', field: 'fileName' },
+            { title: 'Date', field: 'date', sorter: 'datetime', sorterParams: { format: 'yyyy-MM-dd' } },
+            { title: 'Size', field: 'size' },
+            { title: 'Compressed', field: 'compressedSize' },
+            { title: 'Chamber', field: 'chamber' },
+            { title: 'Biennium', field: 'biennium' },
+            { title: 'Kind', field: 'kind' },
+            { title: 'Total $', field: 'totalDollarAmount', formatter: 'money', formatterParams: { thousand: ',', precision: 0 } },
+            { title: 'Description', field: 'description' }
+          ],
+          zipMapper: d => {
+            const urlHtm = d.urlXml.replace(/xml/gi, 'htm');
+            const basePath = `${d.biennium}/${d.kind}/${d.chamber}/${d.name}`;
+            return [
+              { path: `${basePath}.xml`, url: d.urlXml },
+              { path: `${basePath}.htm`, url: urlHtm }
+            ];
+          }
+        });
+      }
 
-    // Load persisted data
-    const saved = await this.load();
-    if (saved?.tableData && this.tbRef) {
-      this.tbRef.setData(saved.tableData);
-      this.loaded = new Set(saved.loaded || []);
+      // Load persisted data
+      const saved = await this.load();
+      if (saved?.tableData && this.tbRef) {
+        this.tbRef.setData(saved.tableData);
+        this.loaded = new Set(saved.loaded || []);
+      }
     }
   },
 

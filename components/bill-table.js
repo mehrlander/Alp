@@ -55,10 +55,9 @@ alp.define('bill-table', _ => `
   get bienniums() { return alp.kit.leg.bienniums; },
   get types() { return alp.kit.leg.types; },
 
-  // Initialize component
-  async sync() {
-    // Initialize table if not already done
-    if (!this.table) {
+  // Handle all lifecycle events
+  async onPing(occasion) {
+    if (occasion === 'mount') {
       this.table = await alp.kit.tb({
         target: this.find('[name="table"]'),
         layout: 'fitData',
@@ -82,13 +81,13 @@ alp.define('bill-table', _ => `
 
       this.table.on('dataFiltered', (filters, rows) => this.rowCount = rows.length);
       this.table.on('dataLoaded', data => this.rowCount = data.length);
-    }
 
-    // Load persisted data
-    const saved = await this.load();
-    if (saved?.tableData) {
-      this.table.setData(saved.tableData);
-      this.loaded = new Set(saved.loaded || []);
+      // Load persisted data
+      const saved = await this.load();
+      if (saved?.tableData) {
+        this.table.setData(saved.tableData);
+        this.loaded = new Set(saved.loaded || []);
+      }
     }
   },
 

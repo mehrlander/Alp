@@ -30,9 +30,11 @@
       </div>
     `, {
       text: '',
-      async sync() {
-        const data = await this.load();
-        this.text = data?.text || '';
+      async onPing(occasion) {
+        if (occasion === 'mount' || occasion === 'path') {
+          const record = await this.load();
+          this.text = record?.text || '';
+        }
       }
     });
 
@@ -49,8 +51,15 @@
       </div>
     `, {
       table: null,
-      async sync() {
-        await this.loadTable();
+      async onPing(occasion) {
+        switch (occasion) {
+          case 'mount':
+          case 'path':
+          case 'save-record':
+          case 'delete-record':
+            await this.loadTable();
+            break;
+        }
       },
       async loadTable() {
         const loaded = await this.load();
@@ -74,11 +83,6 @@
           ['cellEdited', 'rowAdded', 'rowDeleted'].forEach(e =>
             this.table.on(e, () => this.save({ rows: this.table.getData() }))
           );
-        }
-      },
-      onPing(occasion, data) {
-        if (occasion === 'save-record' || occasion === 'delete-record') {
-          this.loadTable();
         }
       },
       addRow() {
