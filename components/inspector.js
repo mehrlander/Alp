@@ -28,11 +28,22 @@ alp.define('inspector', _ => modal(`
   records: [],
   selected: '',
   jse: null,
+  _settingContent: false,
   async refresh() {
     this.catalog = await alp.load();
     this.namespaces = Object.keys(this.catalog);
     const target = this.catalog[this.ns] ? this.ns : (this.namespaces[0] || 'alp');
-    if (target !== this.ns || !this.records.length) await this.goNs(target);
+    if (target !== this.ns || !this.records.length) {
+      await this.goNs(target);
+    } else {
+      // Refresh records list and reload current record if it exists
+      this.records = this.catalog[this.ns] || [];
+      if (this.selected && this.records.some(r => r.key === this.selected)) {
+        await this.goRecord(this.selected);
+      } else if (this.records.length) {
+        await this.goRecord(this.records[0].key);
+      }
+    }
   },
   async goNs(n) {
     this.ns = n;
@@ -49,12 +60,18 @@ alp.define('inspector', _ => modal(`
     await this.refresh();
   },
   async handleChange({ json }) {
-    if (this.selected) await alp.saveRecord(this.selected, json);
+    if (this.selected && !this._settingContent) {
+      await alp.saveRecord(this.selected, json);
+    }
   },
   async goRecord(k) {
     this.selected = k;
     const data = await alp.loadRecord(k);
-    await this.jse.set({ json: data || {} });
+    if (this.jse) {
+      this._settingContent = true;
+      await this.jse.set({ json: data || {} });
+      this._settingContent = false;
+    }
   },
   async clear() {
     await alp.deleteRecord(this.selected);
