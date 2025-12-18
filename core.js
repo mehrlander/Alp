@@ -37,8 +37,6 @@ const ping = (p, data, occasion = 'data') => {
   if (!s) return;
   s.forEach(x => {
     x.sync?.();
-    if (occasion === 'save-record') x.savedCallback?.(data);
-    else if (occasion === 'delete-record') x.deletedCallback?.();
     x.onPing?.(occasion, data);
   });
 
