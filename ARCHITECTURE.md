@@ -29,6 +29,35 @@ alp.loadRecord('bills.electric-jan')  // → { amount: 120 }
 alp.deleteRecord('bills.electric-jan')
 ```
 
+#### Data Operations Reference
+
+| Method | Scope | Returns |
+|--------|-------|---------|
+| `this.load()` | Component | Record at component's `path` |
+| `this.save(data)` | Component | Saves to component's `path` |
+| `this.del()` | Component | Deletes component's `path` |
+| `alp.loadRecord(name)` | Global | Record at specific path |
+| `alp.saveRecord(name, data)` | Global | Saves to specific path |
+| `alp.deleteRecord(name)` | Global | Deletes specific path |
+| `alp.load()` | Global | **All** records grouped by namespace |
+
+The `alp.load()` function returns the entire database grouped by namespace prefix:
+
+```js
+const catalog = await alp.load();
+// {
+//   bills: [
+//     { key: 'bills.electric-jan', sig: 'electric-jan', data: { amount: 120 } },
+//     { key: 'bills.water-jan', sig: 'water-jan', data: { amount: 45 } }
+//   ],
+//   alp: [
+//     { key: 'alp.inspector', sig: 'inspector', data: {...} }
+//   ]
+// }
+```
+
+This is used by inspector-type components that need to browse all stored data.
+
 ### Path Registry
 
 Components subscribe to paths for reactive updates:
@@ -141,12 +170,40 @@ Use in HTML:
 | `host` | The `<alp-*>` custom element |
 | `path` | Current storage path (getter/setter - setting triggers `onPing('path')`) |
 | `_path` | Internal path storage |
-| `find(selector)` | querySelector within el |
+| `_isReady` | Boolean indicating if component has completed initialization |
+| `find(selector)` | querySelector within el (returns thenable proxy for nested alp components) |
 | `save(data)` | Save to current path |
-| `load()` | Load from current path |
+| `load()` | Load record from current path |
 | `del()` | Delete current path |
 | `onPing(occasion, data)` | Override: unified handler for all lifecycle events |
-| `declareReady()` | Signals initialization complete |
+| `mount(el)` | Called by x-init; sets up component, awaits `onPing('mount')`, then `declareReady()` |
+| `declareReady()` | Signals initialization complete, flushes queued calls, fires `onPing('ready')` |
+
+### Global Find
+
+`alp.find(selector)` searches the entire document (vs `this.find()` which searches within a component):
+
+```js
+// Get a component anywhere in the document
+const inspector = alp.find('alp-inspector');
+inspector.refresh();
+```
+
+### Thenable Proxy Pattern
+
+Both `this.find()` and `alp.find()` return a thenable proxy for alp components that aren't yet ready. This allows safe interaction with components during initialization:
+
+```js
+// Method calls are queued until component is ready
+const child = this.find('alp-child');
+child.doSomething();  // Queued if not ready, executed immediately if ready
+
+// Await to get the actual component data object
+const child = await this.find('alp-child');
+console.log(child.path);  // Safe - component is definitely ready
+```
+
+The proxy queues method calls and flushes them once `declareReady()` is called. This eliminates race conditions when parent components interact with children during mount.
 
 ## Fills (Template Helpers)
 
@@ -184,6 +241,46 @@ const original = await alp.kit.brotli.decompress(compressed);
 
 // Text utilities
 const hash = await alp.kit.text.sha256(str);
+```
+
+## Debug & Internals
+
+### Console Capture
+
+Core.js intercepts console methods (`log`, `warn`, `error`, `info`) and stores the last 100 entries in `alp.consoleLogs`:
+
+```js
+alp.consoleLogs
+// [
+//   { type: 'log', time: '10:32:15 AM', args: '📦 Alp deps loaded' },
+//   { type: 'error', time: '10:32:16 AM', args: 'Something went wrong' },
+//   ...
+// ]
+```
+
+Useful for building in-app debug panels or capturing errors that occurred before devtools opened.
+
+### Inspector Auto-Notification
+
+The `ping()` function automatically notifies `alp-inspector` (if present) whenever records are saved or deleted:
+
+```js
+// In core.js ping():
+if (occasion === 'save-record' || occasion === 'delete-record') {
+  const inspector = globalFind('alp-inspector');
+  inspector?.onPing(occasion, { path: p, data });
+}
+```
+
+This allows the inspector to refresh its catalog view without manual subscription to every path.
+
+### Direct Database Access
+
+The Dexie database instance is exposed for advanced operations:
+
+```js
+alp.db.alp.toArray()           // Get all records
+alp.db.alp.where('name').startsWith('bills.').toArray()  // Query by prefix
 ```
 
 ## File Structure
