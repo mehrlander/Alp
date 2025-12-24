@@ -2,7 +2,30 @@
 
 ## Overview
 
-Alp is a lightweight frontend framework combining Alpine.js, Web Components, and Dexie (IndexedDB). It provides reactive data binding tied to persistent storage paths.
+Alp is a small library to help spin up data-centric utilities in the browser. It combines Alpine.js (reactivity), Dexie (IndexedDB persistence), and Web Components into a set of patterns for:
+
+- Defining components succinctly
+- Automatic state persistence
+- Communication between components without glue code
+- Handling async timing when things load out of order
+
+---
+
+## Central Concepts
+
+### Path
+
+To center the persistence story, Alp leans heavily on the concept of a path. A component defaults to a path based on its name (`<alp-inspector>` → `alp.inspector`). But think of the path as two things: where the component stores its data, and the address where it can be reached. Set the path via attribute, expose it in your UI if you want—put the path wherever and you're writing there, you're findable there.
+
+### Ping
+
+Components often need to nudge each other—share state, trigger updates, maybe change each other's state. Ping centralizes this. To push, you ping a path and hit whatever's there. A component defines `onPing` to say what it does when prodded. There can also be general behaviors for certain ping occasions. Components have their own methods for internal stuff, but for one component nudging another, ping is the pattern.
+
+### Queues
+
+Stuff isn't always ready when you want it. Alpine has its own mechanisms; Alp adds proxy-based queues in a few places so you can call things before they exist and let the framework sort out timing.
+
+---
 
 ## Boot Sequence
 
