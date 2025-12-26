@@ -4,6 +4,7 @@ import { fills } from './utils/fills.js';
 import { kit } from './utils/kit.js';
 import { parsePath, buildPath, buildFullPath, path, DEFAULT_DB, DEFAULT_STORE } from './utils/path.js';
 import { dbManager } from './utils/db-manager.js';
+import { isIndexedDBAvailable, MemoryDb } from './utils/memory-db.js';
 
 // Console capture
 const consoleLogs = [];
@@ -21,10 +22,24 @@ const fmt = a => {
   };
 });
 
-// Dexie setup - create default database and register with manager
-const db = new Dexie(DEFAULT_DB);
-db.version(1).stores({ [DEFAULT_STORE]: 'name' });
-dbManager.registerDb(DEFAULT_DB, db, [DEFAULT_STORE]);
+// Database setup - detect IndexedDB availability and create appropriate database
+let db;
+const indexedDBAvailable = await isIndexedDBAvailable();
+
+if (indexedDBAvailable) {
+  // Use IndexedDB via Dexie
+  db = new Dexie(DEFAULT_DB);
+  db.version(1).stores({ [DEFAULT_STORE]: 'name' });
+  dbManager.registerDb(DEFAULT_DB, db, [DEFAULT_STORE]);
+} else {
+  // Fall back to in-memory database
+  dbManager.setPersistent(false);
+  console.warn('⚠️ IndexedDB not available - using in-memory storage. Data will not persist across page refreshes.');
+  db = new MemoryDb(DEFAULT_DB);
+  db.version(1).stores({ [DEFAULT_STORE]: 'name' });
+  await db.open();
+  dbManager.registerDb(DEFAULT_DB, db, [DEFAULT_STORE]);
+}
 
 // Path registry for reactive updates
 // Uses canonical full paths (db/store:record) as keys for consistent lookup
@@ -414,7 +429,14 @@ export const alp = {
   listStores: dbManager.listStores,
   hasDb: dbManager.hasDb,
   hasStore: dbManager.hasStore,
-  deleteDb: dbManager.deleteDb
+  deleteDb: dbManager.deleteDb,
+
+  // Persistence status
+  get persistent() { return dbManager.isPersistent(); }
 };
 
-console.log('✅ Alp Core loaded');
+if (alp.persistent) {
+  console.log('✅ Alp Core loaded');
+} else {
+  console.log('✅ Alp Core loaded (memory mode)');
+}
