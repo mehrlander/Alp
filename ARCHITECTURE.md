@@ -6,7 +6,7 @@ Create utilities to store and work with data in the browser.
 
 **Data** — Data arrives from clipboard, file, API, user input. Storage is handled through IndexedDB.
 
-**Paths** — A path is an address in your data layer to an IndexedDB record. Components bind to a path and can watch activity on it.
+**Paths** — A path is an address in your data layer to an IndexedDB record. Paths can span multiple databases and stores. Components bind to a path and can watch activity on it.
 
 **Components** — A template for UI and data. Name, HTML string, initial state, methods.
 
@@ -87,6 +87,115 @@ const catalog = await alp.load();
 ```
 
 Records are stored with a `name` key following the convention `namespace.identifier`. The framework groups records by the first segment (namespace) when loading all data.
+
+---
+
+## Multi-Database Paths
+
+Paths support multiple databases and stores using a qualified format:
+
+```
+[database/][store:]recordPath
+```
+
+### Path Formats
+
+| Format | Example | Resolves To |
+|--------|---------|-------------|
+| Record only | `bills.jan` | AlpDB → alp → bills.jan |
+| Store-qualified | `data:bills.jan` | AlpDB → data → bills.jan |
+| Fully qualified | `Work/data:bills.jan` | Work → data → bills.jan |
+| DB with default store | `Work/:bills.jan` | Work → alp → bills.jan |
+
+### Path Terminology
+
+- **Record Path**: Just the identifier (`bills.jan`)
+- **Qualified Path**: Store + record (`data:bills.jan`)
+- **Full Path**: Database + store + record (`Work/data:bills.jan`)
+
+### Creating Databases and Stores
+
+Databases and stores must be explicitly created before use:
+
+```js
+// Create a new database with stores
+await alp.createDb('Work', ['invoices', 'expenses']);
+
+// Add a store to an existing database
+await alp.createStore('AlpDB', 'archive');
+
+// List available databases
+alp.listDbs();  // ['AlpDB', 'Work']
+
+// List stores in a database
+alp.listStores('Work');  // ['invoices', 'expenses']
+```
+
+### Working with Multi-DB Paths
+
+```js
+// Save to different store in default database
+await alp.saveRecord('archive:bills.old', data);
+
+// Save to different database
+await alp.saveRecord('Work/invoices:2024.jan', data);
+
+// Load from qualified path
+const invoice = await alp.loadRecord('Work/invoices:2024.jan');
+
+// Load all records (grouped by db/store)
+const all = await alp.load();
+// { 'AlpDB/alp': [...], 'AlpDB/archive': [...], 'Work/invoices': [...] }
+
+// Filter by database or store
+const workRecords = await alp.load({ db: 'Work' });
+const archiveRecords = await alp.load({ store: 'archive' });
+```
+
+### Path Validation
+
+Referencing a non-existent database or store throws a descriptive error:
+
+```js
+await alp.saveRecord('Unknown/store:record', data);
+// Error: Database 'Unknown' not found. Use alp.createDb('Unknown', ['store']) to create it.
+
+await alp.saveRecord('newStore:record', data);
+// Error: Store 'newStore' not found in database 'AlpDB'. Use alp.createStore('AlpDB', 'newStore') to create it.
+```
+
+### Path Utilities
+
+```js
+// Parse a path into components
+alp.parsePath('Work/data:bills.jan');
+// { db: 'Work', store: 'data', record: 'bills.jan', full: 'Work/data:bills.jan', isDefaultDb: false, isDefaultStore: false }
+
+// Build a path from components (omits defaults)
+alp.buildPath('AlpDB', 'alp', 'bills.jan');  // 'bills.jan'
+alp.buildPath('AlpDB', 'data', 'bills.jan'); // 'data:bills.jan'
+alp.buildPath('Work', 'data', 'bills.jan');  // 'Work/data:bills.jan'
+
+// Check if path is valid (db/store exist)
+alp.isValidPath('Work/data:bills.jan');  // true/false
+```
+
+### Component Paths
+
+Components can bind to any valid path:
+
+```html
+<!-- Default: AlpDB/alp -->
+<alp-counter></alp-counter>
+
+<!-- Different store -->
+<alp-counter path="archive:counters.main"></alp-counter>
+
+<!-- Different database -->
+<alp-counter path="Work/data:counters.work"></alp-counter>
+```
+
+The ping system normalizes paths internally, so `bills.jan` and `AlpDB/alp:bills.jan` both notify the same registered components.
 
 ---
 
@@ -263,14 +372,26 @@ The framework includes an inspector component that auto-mounts a settings icon i
 
 ### Direct Database Access
 
-The Dexie instance is exposed for advanced queries:
+The default Dexie instance is exposed for advanced queries:
 
 ```js
-// Get all records
+// Get all records from default store
 await alp.db.alp.toArray()
 
 // Query by prefix
 await alp.db.alp.where('name').startsWith('bills.').toArray()
+```
+
+For multi-database access, use the database management API:
+
+```js
+// Check what databases/stores exist
+alp.listDbs();           // ['AlpDB', 'Work']
+alp.listStores('Work');  // ['invoices', 'expenses']
+
+// Check existence
+alp.hasDb('Work');              // true
+alp.hasStore('Work', 'invoices'); // true
 ```
 
 ---
