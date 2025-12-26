@@ -7,14 +7,14 @@ alp.define('inspector', _ => modal(`
     <div name="jse" class="absolute inset-0"></div>
   </div>
   <div class="flex bg-base-300 text-xs flex-shrink-0 p-2 items-center gap-2">
-    <select class="select select-xs w-auto min-w-0" @change="goNs($event.target.value)">
-      <template x-for="n in namespaces"><option :value="n" :selected="n === ns" x-text="n"></option></template>
+    <select class="select select-xs w-auto min-w-0" @change="goStore($event.target.value)">
+      <template x-for="s in stores"><option :value="s" :selected="s === store" x-text="s"></option></template>
     </select>
     <div class="flex-1 overflow-x-auto min-w-0">
       <div class="flex gap-0.5 whitespace-nowrap">
-        <template x-for="r in records" :key="r.key">
-          <button class="btn btn-xs" @click="goRecord(r.key)" :class="selected===r.key?'btn-primary':'btn'">
-            <span x-text="r.sig"></span>
+        <template x-for="r in records" :key="r.fullPath">
+          <button class="btn btn-xs" @click="goRecord(r)" :class="selected===r.fullPath?'btn-primary':'btn'">
+            <span x-text="r.key"></span>
           </button>
         </template>
       </div>
@@ -22,33 +22,34 @@ alp.define('inspector', _ => modal(`
     <button class="btn btn-xs btn-error btn-outline" @click="clear()">Clear</button>
   </div>
 `), {
-  ns: 'alp',
+  store: 'AlpDB/alp',
   catalog: {},
-  namespaces: [],
+  stores: [],
   records: [],
   selected: '',
   jse: null,
   _settingContent: false,
   async refresh() {
     this.catalog = await alp.load();
-    this.namespaces = Object.keys(this.catalog);
-    const target = this.catalog[this.ns] ? this.ns : (this.namespaces[0] || 'alp');
-    if (target !== this.ns || !this.records.length) {
-      await this.goNs(target);
+    this.stores = Object.keys(this.catalog);
+    const target = this.catalog[this.store] ? this.store : (this.stores[0] || 'AlpDB/alp');
+    if (target !== this.store || !this.records.length) {
+      await this.goStore(target);
     } else {
       // Refresh records list and reload current record if it exists
-      this.records = this.catalog[this.ns] || [];
-      if (this.selected && this.records.some(r => r.key === this.selected)) {
-        await this.goRecord(this.selected);
+      this.records = this.catalog[this.store] || [];
+      if (this.selected && this.records.some(r => r.fullPath === this.selected)) {
+        const r = this.records.find(r => r.fullPath === this.selected);
+        await this.goRecord(r);
       } else if (this.records.length) {
-        await this.goRecord(this.records[0].key);
+        await this.goRecord(this.records[0]);
       }
     }
   },
-  async goNs(n) {
-    this.ns = n;
-    this.records = this.catalog[this.ns] || [];
-    this.records.length ? await this.goRecord(this.records[0].key) : this.jse?.set({ json: {} });
+  async goStore(s) {
+    this.store = s;
+    this.records = this.catalog[this.store] || [];
+    this.records.length ? await this.goRecord(this.records[0]) : this.jse?.set({ json: {} });
   },
   async open() {
     this.find('dialog').showModal();
@@ -64,9 +65,9 @@ alp.define('inspector', _ => modal(`
       await alp.saveRecord(this.selected, json);
     }
   },
-  async goRecord(k) {
-    this.selected = k;
-    const data = await alp.loadRecord(k);
+  async goRecord(r) {
+    this.selected = r.fullPath;
+    const data = await alp.loadRecord(r.fullPath);
     if (this.jse) {
       this._settingContent = true;
       await this.jse.set({ json: data || {} });

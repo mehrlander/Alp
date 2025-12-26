@@ -6,18 +6,18 @@ alp.define('jse', _ => `
       <div name="jse" class="w-full h-full"></div>
     </div>
     <div class="flex-none bg-base-300 text-xs p-2 flex items-center gap-2 border-t border-base-200">
-      <template x-if="namespaces.length > 1">
-        <select class="select select-xs w-auto min-w-0" @change="goNs($event.target.value)" x-model="ns">
-          <template x-for="n in namespaces" :key="n">
-            <option :value="n" x-text="n"></option>
+      <template x-if="stores.length > 1">
+        <select class="select select-xs w-auto min-w-0" @change="goStore($event.target.value)" x-model="store">
+          <template x-for="s in stores" :key="s">
+            <option :value="s" x-text="s"></option>
           </template>
         </select>
       </template>
       <div class="flex-1 overflow-x-auto min-w-0">
         <div class="flex gap-0.5 whitespace-nowrap">
-          <template x-for="r in pageRecords" :key="r.key">
-            <button class="btn btn-xs" @click="goRecord(r)" :class="selected === r.key ? 'btn-primary' : 'btn-ghost'">
-              <span x-text="r.sig"></span>
+          <template x-for="r in pageRecords" :key="r.fullPath">
+            <button class="btn btn-xs" @click="goRecord(r)" :class="selected === r.fullPath ? 'btn-primary' : 'btn-ghost'">
+              <span x-text="r.key"></span>
             </button>
           </template>
         </div>
@@ -40,9 +40,9 @@ alp.define('jse', _ => `
 `, {
   jse: null,
   catalog: {},
-  namespaces: [],
+  stores: [],
   records: [],
-  ns: '',
+  store: '',
   selected: '',
   page: 0,
   pageSize: 20,
@@ -62,19 +62,19 @@ alp.define('jse', _ => `
   },
   async refresh() {
     this.catalog = await alp.load();
-    this.namespaces = Object.keys(this.catalog);
-    const target = this.catalog[this.ns] ? this.ns : (this.namespaces[0] || 'alp');
-    if (target !== this.ns || !this.records.length) await this.goNs(target);
+    this.stores = Object.keys(this.catalog);
+    const target = this.catalog[this.store] ? this.store : (this.stores[0] || 'AlpDB/alp');
+    if (target !== this.store || !this.records.length) await this.goStore(target);
   },
-  async goNs(n) {
-    this.ns = n;
-    this.records = this.catalog[n] || [];
+  async goStore(s) {
+    this.store = s;
+    this.records = this.catalog[s] || [];
     this.page = 0;
     this.records.length ? await this.goRecord(this.records[0]) : this.jse?.set({ json: {} });
   },
   async goRecord(r) {
-    this.selected = r.key;
-    const data = await alp.loadRecord(r.key);
+    this.selected = r.fullPath;
+    const data = await alp.loadRecord(r.fullPath);
     await this.jse?.set({ json: data || {} });
   },
   async handleChange({ json }) {
@@ -83,11 +83,11 @@ alp.define('jse', _ => `
     this._save = setTimeout(() => alp.saveRecord(this.selected, json), 300);
   },
   async addRecord() {
-    const name = prompt('Record name (namespace.key):');
+    const name = prompt('Record path (e.g., namespace.key or store:namespace.key):');
     if (!name) return;
     await alp.saveRecord(name, {});
     await this.refresh();
-    const r = this.records.find(x => x.key === name);
+    const r = this.records.find(x => x.fullPath === name || x.key === name);
     if (r) await this.goRecord(r);
   },
   async delRecord() {
