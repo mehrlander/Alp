@@ -2,6 +2,8 @@
 
 import { fills } from './utils/fills.js';
 import { kit } from './utils/kit.js';
+import { parsePath, buildPath, buildFullPath, path, DEFAULT_DB, DEFAULT_STORE } from './utils/path.js';
+import { dbManager } from './utils/db-manager.js';
 
 // Console capture
 const consoleLogs = [];
@@ -19,23 +21,40 @@ const fmt = a => {
   };
 });
 
-// Dexie setup
-const db = new Dexie('AlpDB');
-db.version(1).stores({ alp: 'name' });
+// Dexie setup - create default database and register with manager
+const db = new Dexie(DEFAULT_DB);
+db.version(1).stores({ [DEFAULT_STORE]: 'name' });
+dbManager.registerDb(DEFAULT_DB, db, [DEFAULT_STORE]);
 
 // Path registry for reactive updates
+// Uses canonical full paths (db/store:record) as keys for consistent lookup
 const pathRegistry = Object.create(null);
-const reg = (p, x) => ((pathRegistry[p] ||= new Set).add(x), x);
+
+const canonicalPath = (p) => {
+  const { db, store, record } = parsePath(p);
+  return buildFullPath(db, store, record);
+};
+
+const reg = (p, x) => {
+  const key = canonicalPath(p);
+  (pathRegistry[key] ||= new Set).add(x);
+  return x;
+};
+
 const unreg = (p, x) => {
-  const s = pathRegistry[p];
+  const key = canonicalPath(p);
+  const s = pathRegistry[key];
   if (!s) return;
   s.delete(x);
-  if (!s.size) delete pathRegistry[p];
+  if (!s.size) delete pathRegistry[key];
 };
+
 const ping = (p, data, occasion = 'data') => {
-  const s = pathRegistry[p];
-  if (!s) return;
-  s.forEach(x => x.onPing?.(occasion, data));
+  const key = canonicalPath(p);
+  const s = pathRegistry[key];
+  if (s) {
+    s.forEach(x => x.onPing?.(occasion, data));
+  }
 
   // Notify inspector on record changes
   if (occasion === 'save-record' || occasion === 'delete-record') {
@@ -103,26 +122,124 @@ const getReadyPromise = (el) => {
   return Promise.resolve(el);
 };
 
-// Data operations
-const load = () => db.alp.toArray().then(rs => rs.reduce((m, { name, data }) => {
-  const [store, ...rest] = name.split('.');
-  (m[store] ||= []).push({ key: name, sig: rest.join('.'), data });
-  return m;
-}, {}));
+// Data operations with multi-db/store support
 
-const loadRecord = name => db.alp.get(name).then(r => r?.data);
+/**
+ * Load all records, optionally filtered by db/store
+ * @param {{ db?: string, store?: string }} [filter] - Optional filter
+ * @returns {Promise<Object>} Records grouped by 'db/store' key
+ */
+const load = async (filter = {}) => {
+  const result = {};
+  const dbsToCheck = filter.db ? [filter.db] : dbManager.listDbs();
 
-const saveRecord = (name, data) => db.alp.put({ name, data }).then(() => {
-  console.log(`💾 ${name}:`, data);
-  ping(name, data, 'save-record');
-});
+  for (const dbName of dbsToCheck) {
+    const storesToCheck = filter.store ? [filter.store] : dbManager.listStores(dbName);
 
-const deleteRecord = name => db.alp.delete(name).then(() => {
-  console.log(`🗑️ ${name}`);
-  ping(name, null, 'delete-record');
-});
+    for (const storeName of storesToCheck) {
+      if (!dbManager.hasStore(dbName, storeName)) continue;
 
-const safeStore = (s, map) => map[s] ? s : (Object.keys(map)[0] || 'alp');
+      const table = dbManager.getStore(dbName, storeName);
+      const records = await table.toArray();
+
+      const groupKey = `${dbName}/${storeName}`;
+      result[groupKey] = records.map(({ name, data }) => {
+        const [namespace, ...rest] = name.split('.');
+        return {
+          key: name,
+          fullPath: buildPath(dbName, storeName, name),
+          namespace,
+          sig: rest.join('.'),
+          data
+        };
+      });
+    }
+  }
+
+  return result;
+};
+
+/**
+ * Load a single record by full path
+ * @param {string} fullPath - Full path (e.g., 'Work/data:bills.jan' or 'bills.jan')
+ * @returns {Promise<any>} The record data or undefined
+ */
+const loadRecord = async (fullPath) => {
+  const { db: dbName, store, record } = parsePath(fullPath);
+
+  if (!dbManager.has(dbName, store)) {
+    throw new Error(
+      !dbManager.hasDb(dbName)
+        ? `Database '${dbName}' not found. Use alp.createDb('${dbName}', ['${store}']) to create it.`
+        : `Store '${store}' not found in database '${dbName}'. Use alp.createStore('${dbName}', '${store}') to create it.`
+    );
+  }
+
+  const table = dbManager.getStore(dbName, store);
+  const r = await table.get(record);
+  return r?.data;
+};
+
+/**
+ * Save a record by full path
+ * @param {string} fullPath - Full path
+ * @param {any} data - Data to save
+ * @returns {Promise<void>}
+ */
+const saveRecord = async (fullPath, data) => {
+  const { db: dbName, store, record } = parsePath(fullPath);
+
+  if (!dbManager.has(dbName, store)) {
+    throw new Error(
+      !dbManager.hasDb(dbName)
+        ? `Database '${dbName}' not found. Use alp.createDb('${dbName}', ['${store}']) to create it.`
+        : `Store '${store}' not found in database '${dbName}'. Use alp.createStore('${dbName}', '${store}') to create it.`
+    );
+  }
+
+  const table = dbManager.getStore(dbName, store);
+  await table.put({ name: record, data });
+
+  const displayFullPath = buildPath(dbName, store, record);
+  console.log(`💾 ${displayFullPath}:`, data);
+  ping(fullPath, data, 'save-record');
+};
+
+/**
+ * Delete a record by full path
+ * @param {string} fullPath - Full path
+ * @returns {Promise<void>}
+ */
+const deleteRecord = async (fullPath) => {
+  const { db: dbName, store, record } = parsePath(fullPath);
+
+  if (!dbManager.has(dbName, store)) {
+    throw new Error(
+      !dbManager.hasDb(dbName)
+        ? `Database '${dbName}' not found. Use alp.createDb('${dbName}', ['${store}']) to create it.`
+        : `Store '${store}' not found in database '${dbName}'. Use alp.createStore('${dbName}', '${store}') to create it.`
+    );
+  }
+
+  const table = dbManager.getStore(dbName, store);
+  await table.delete(record);
+
+  const displayFullPath = buildPath(dbName, store, record);
+  console.log(`🗑️ ${displayFullPath}`);
+  ping(fullPath, null, 'delete-record');
+};
+
+/**
+ * Check if a path's db/store exist
+ * @param {string} fullPath - Full path to validate
+ * @returns {boolean}
+ */
+const isValidPath = (fullPath) => {
+  const { db: dbName, store } = parsePath(fullPath);
+  return dbManager.has(dbName, store);
+};
+
+const safeStore = (s, map) => map[s] ? s : (Object.keys(map)[0] || DEFAULT_STORE);
 
 // Alp base class
 class Alp extends HTMLElement {
@@ -263,7 +380,19 @@ const globalFind = (s) => {
 };
 
 // Core API
-const core = { db, pathRegistry, consoleLogs, load, loadRecord, saveRecord, deleteRecord, safeStore, define, ping };
+const core = {
+  db,
+  pathRegistry,
+  consoleLogs,
+  load,
+  loadRecord,
+  saveRecord,
+  deleteRecord,
+  safeStore,
+  define,
+  ping,
+  isValidPath
+};
 
 // Public API
 export const alp = {
@@ -271,7 +400,21 @@ export const alp = {
   fills,
   kit,
   find: globalFind,
-  mk: (tagEnd) => mk(tagEnd, defs[tagEnd]?.initState || {})
+  mk: (tagEnd) => mk(tagEnd, defs[tagEnd]?.initState || {}),
+
+  // Path utilities
+  path,
+  parsePath,
+  buildPath,
+
+  // Database management
+  createDb: dbManager.createDb,
+  createStore: dbManager.createStore,
+  listDbs: dbManager.listDbs,
+  listStores: dbManager.listStores,
+  hasDb: dbManager.hasDb,
+  hasStore: dbManager.hasStore,
+  deleteDb: dbManager.deleteDb
 };
 
 console.log('✅ Alp Core loaded');
