@@ -1,12 +1,78 @@
 // core.js - Alp Framework Core Module
+// Loaded by alp.js with version cache-busting
 
-import { fills } from './utils/fills.js';
-import { kit } from './utils/kit.js';
-import { parsePath, buildPath, buildFullPath, path, DEFAULT_DB, DEFAULT_STORE } from './utils/path.js';
-import { dbManager } from './utils/db-manager.js';
-import { isIndexedDBAvailable, MemoryDb } from './utils/memory-db.js';
+const VERSION = window.__alp?.version || '';
+const versionSuffix = VERSION ? `?v=${VERSION}` : '';
 
-// Console capture
+// Helper to build versioned import URLs
+const BASE = (() => {
+  // Try to determine base from import.meta.url
+  try {
+    const url = new URL(import.meta.url);
+    url.search = ''; // Remove query params
+    return url.href.replace(/[^/]+$/, '');
+  } catch {
+    return '';
+  }
+})();
+
+const v = (path) => `${BASE}${path}${versionSuffix}`;
+
+// === PROXY QUEUES (no dependencies) ===
+const qProxy = (opts = {}) => new Proxy(() => {}, (() => {
+  let t, ready = 0, q = [];
+  const { nested, onReady, props } = opts;
+  const go = () => {
+    if (!(ready & 3) || !t) return;
+    while (q.length) {
+      const [path, a] = q.shift();
+      let obj = t;
+      for (const k of path) obj = obj[k];
+      obj(...a);
+    }
+  };
+  if (onReady) onReady(() => { ready |= 2; go(); });
+  else ready |= 2;
+  return {
+    get: (_, k) => k === '__q' ? 1
+      : k === 'bind' ? o => (t = o, ready |= 1, go(), o)
+      : props?.[k] !== undefined ? props[k]
+      : nested
+        ? new Proxy(() => {}, {
+            apply: (_, __, a) => { if ((ready & 3) && t) return t[k](...a); q.push([[k], a]); },
+            get: (_, m) => (...a) => { if ((ready & 3) && t) return t[k][m](...a); q.push([[k, m], a]); }
+          })
+        : (ready & 3) && t && (k in t) && typeof t[k] !== 'function'
+          ? t[k]
+          : (...a) => { if ((ready & 3) && t) return t[k](...a); q.push([[k], a]); },
+    apply: (_, __, a) => { if ((ready & 3) && t) return t(...a); q.push([[], a]); }
+  };
+})());
+
+// Create proxies for window.alp
+const alpineReady = go => document.addEventListener('alpine:init', go, { once: 1 });
+const kitProxy = qProxy({ onReady: alpineReady, nested: true });
+const fillsProxy = qProxy({ onReady: alpineReady });
+window.alp = qProxy({ onReady: alpineReady, props: { kit: kitProxy, fills: fillsProxy } });
+
+// === CSS LOADING ===
+const el = (t, a) => Object.assign(document.createElement(t), a);
+const css = href => document.head.appendChild(el('link', { rel: 'stylesheet', href }));
+css('https://cdn.jsdelivr.net/combine/npm/daisyui@5/themes.css,npm/daisyui@5,npm/tabulator-tables/dist/css/tabulator_simple.min.css');
+
+// === CDN LOADING ===
+const js = src => new Promise((ok, err) => document.head.appendChild(el('script', { src, onload: ok, onerror: err })));
+await js('https://cdn.jsdelivr.net/combine/npm/@tailwindcss/browser@4,npm/@phosphor-icons/web,npm/dexie@4,npm/tabulator-tables');
+console.log('📦 Alp deps loaded');
+
+// === IMPORT LOCAL MODULES WITH VERSIONING ===
+const { fills } = await import(v('utils/fills.js'));
+const { kit } = await import(v('utils/kit.js'));
+const { parsePath, buildPath, buildFullPath, path, DEFAULT_DB, DEFAULT_STORE } = await import(v('utils/path.js'));
+const { dbManager } = await import(v('utils/db-manager.js'));
+const { isIndexedDBAvailable, MemoryDb } = await import(v('utils/memory-db.js'));
+
+// === CONSOLE CAPTURE ===
 const consoleLogs = [];
 const MAX = 100;
 const orig = Object.fromEntries(['log', 'warn', 'error', 'info'].map(k => [k, console[k].bind(console)]));
@@ -22,17 +88,15 @@ const fmt = a => {
   };
 });
 
-// Database setup - detect IndexedDB availability and create appropriate database
+// === DATABASE SETUP ===
 let db;
 const indexedDBAvailable = await isIndexedDBAvailable();
 
 if (indexedDBAvailable) {
-  // Use IndexedDB via Dexie
   db = new Dexie(DEFAULT_DB);
   db.version(1).stores({ [DEFAULT_STORE]: 'name' });
   dbManager.registerDb(DEFAULT_DB, db, [DEFAULT_STORE]);
 } else {
-  // Fall back to in-memory database
   dbManager.setPersistent(false);
   console.warn('⚠️ IndexedDB not available - using in-memory storage. Data will not persist across page refreshes.');
   db = new MemoryDb(DEFAULT_DB);
@@ -41,8 +105,7 @@ if (indexedDBAvailable) {
   dbManager.registerDb(DEFAULT_DB, db, [DEFAULT_STORE]);
 }
 
-// Path registry for reactive updates
-// Uses canonical full paths (db/store:record) as keys for consistent lookup
+// === PATH REGISTRY ===
 const pathRegistry = Object.create(null);
 
 const canonicalPath = (p) => {
@@ -71,7 +134,6 @@ const ping = (p, data, occasion = 'data') => {
     s.forEach(x => x.onPing?.(occasion, data));
   }
 
-  // Notify inspector on record changes
   if (occasion === 'save-record' || occasion === 'delete-record') {
     const inspector = globalFind('alp-inspector');
     if (inspector?.onPing) {
@@ -80,15 +142,11 @@ const ping = (p, data, occasion = 'data') => {
   }
 };
 
-// Pending proxy queues for not-yet-ready alp components
+// === COMPONENT PROXY SYSTEM ===
 const pendingProxies = new WeakMap();
-
-// Promises waiting for components to be ready
 const readyPromises = new WeakMap();
 
-// Create a thenable proxy that queues method calls until component is ready
 const createComponentProxy = (el) => {
-  // Reuse existing queue if present
   let queue = pendingProxies.get(el);
   if (!queue) {
     queue = [];
@@ -97,34 +155,26 @@ const createComponentProxy = (el) => {
 
   return new Proxy({}, {
     get(_, method) {
-      // Make proxy thenable for await support
       if (method === 'then') {
         return (resolve, reject) => getReadyPromise(el).then(resolve, reject);
       }
-      // Return a function that queues the call
       return (...args) => {
-        // Check if component is now ready
         if (el.data?._isReady) {
-          // Execute directly
           const fn = el.data[method];
           return typeof fn === 'function' ? fn.apply(el.data, args) : fn;
         }
-        // Queue for later execution
         queue.push({ method, args });
       };
     }
   });
 };
 
-// Get or create a promise that resolves when component is ready
 const getReadyPromise = (el) => {
   if (!el) return Promise.resolve(null);
 
   if (el.tagName.startsWith('ALP-')) {
-    // Already ready - resolve immediately
     if (el.data?._isReady) return Promise.resolve(el.data);
 
-    // Create or return existing promise
     let entry = readyPromises.get(el);
     if (!entry) {
       let resolve;
@@ -137,13 +187,7 @@ const getReadyPromise = (el) => {
   return Promise.resolve(el);
 };
 
-// Data operations with multi-db/store support
-
-/**
- * Load all records, optionally filtered by db/store
- * @param {{ db?: string, store?: string }} [filter] - Optional filter
- * @returns {Promise<Object>} Records grouped by 'db/store' key
- */
+// === DATA OPERATIONS ===
 const load = async (filter = {}) => {
   const result = {};
   const dbsToCheck = filter.db ? [filter.db] : dbManager.listDbs();
@@ -174,11 +218,6 @@ const load = async (filter = {}) => {
   return result;
 };
 
-/**
- * Load a single record by full path
- * @param {string} fullPath - Full path (e.g., 'Work/data:bills.jan' or 'bills.jan')
- * @returns {Promise<any>} The record data or undefined
- */
 const loadRecord = async (fullPath) => {
   const { db: dbName, store, record } = parsePath(fullPath);
 
@@ -195,12 +234,6 @@ const loadRecord = async (fullPath) => {
   return r?.data;
 };
 
-/**
- * Save a record by full path
- * @param {string} fullPath - Full path
- * @param {any} data - Data to save
- * @returns {Promise<void>}
- */
 const saveRecord = async (fullPath, data) => {
   const { db: dbName, store, record } = parsePath(fullPath);
 
@@ -220,11 +253,6 @@ const saveRecord = async (fullPath, data) => {
   ping(fullPath, data, 'save-record');
 };
 
-/**
- * Delete a record by full path
- * @param {string} fullPath - Full path
- * @returns {Promise<void>}
- */
 const deleteRecord = async (fullPath) => {
   const { db: dbName, store, record } = parsePath(fullPath);
 
@@ -244,11 +272,6 @@ const deleteRecord = async (fullPath) => {
   ping(fullPath, null, 'delete-record');
 };
 
-/**
- * Check if a path's db/store exist
- * @param {string} fullPath - Full path to validate
- * @returns {boolean}
- */
 const isValidPath = (fullPath) => {
   const { db: dbName, store } = parsePath(fullPath);
   return dbManager.has(dbName, store);
@@ -256,7 +279,7 @@ const isValidPath = (fullPath) => {
 
 const safeStore = (s, map) => map[s] ? s : (Object.keys(map)[0] || DEFAULT_STORE);
 
-// Alp base class
+// === ALP BASE CLASS ===
 class Alp extends HTMLElement {
   connectedCallback() {
     const render = () => {
@@ -275,10 +298,9 @@ class Alp extends HTMLElement {
   }
 }
 
-// Component definitions registry
+// === COMPONENT DEFINITIONS ===
 const defs = Object.create(null);
 
-// Create component data object
 const mk = (tagEnd, initState = {}) => {
   const defaultPath = `alp.${tagEnd}`;
   return {
@@ -299,7 +321,7 @@ const mk = (tagEnd, initState = {}) => {
       unreg(this._path, this);
       this._path = p;
       reg(this._path, this);
-      this.onPing?.('path');  // fire-and-forget, internal
+      this.onPing?.('path');
     },
 
     _isReady: false,
@@ -307,11 +329,8 @@ const mk = (tagEnd, initState = {}) => {
     find(s) {
       const el = this.el?.querySelector(s);
       if (!el) return null;
-      // Check if it's an alp component
       if (el.tagName.startsWith('ALP-')) {
-        // If ready, return the component data
         if (el.data?._isReady) return el.data;
-        // Not ready yet, return a thenable queuing proxy
         return createComponentProxy(el);
       }
       return el;
@@ -322,7 +341,6 @@ const mk = (tagEnd, initState = {}) => {
       this._isReady = true;
 
       if (this.host) {
-        // Flush pending proxy queue
         const queue = pendingProxies.get(this.host);
         if (queue) {
           pendingProxies.delete(this.host);
@@ -332,14 +350,12 @@ const mk = (tagEnd, initState = {}) => {
           });
         }
 
-        // Resolve any waiting promises
         const entry = readyPromises.get(this.host);
         if (entry) {
           readyPromises.delete(this.host);
           entry.resolve(this);
         }
 
-        // Auto-ping with host attributes on ready
         const attrs = {};
         for (const attr of this.host.attributes) {
           attrs[attr.name] = attr.value;
@@ -360,14 +376,13 @@ const mk = (tagEnd, initState = {}) => {
       reg(this._path, this);
       if (this.host) this.host.data = this;
 
-      await this.onPing?.('mount');  // awaited - init must complete
+      await this.onPing?.('mount');
 
       if (!this._isReady) this.declareReady();
     }
   };
 };
 
-// Define a new alp component
 const define = (tagEnd, tplFn, initState = {}) => {
   defs[tagEnd] = { initState, tplFn };
 
@@ -380,21 +395,17 @@ const define = (tagEnd, tplFn, initState = {}) => {
   customElements.define(`alp-${tagEnd}`, C);
 };
 
-// Global find function (searches document instead of component)
 const globalFind = (s) => {
   const el = document.querySelector(s);
   if (!el) return null;
-  // Check if it's an alp component
   if (el.tagName.startsWith('ALP-')) {
-    // If ready, return the component data
     if (el.data?._isReady) return el.data;
-    // Not ready yet, return a thenable queuing proxy
     return createComponentProxy(el);
   }
   return el;
 };
 
-// Core API
+// === CORE API ===
 const core = {
   db,
   pathRegistry,
@@ -409,7 +420,7 @@ const core = {
   isValidPath
 };
 
-// Public API
+// === PUBLIC API ===
 export const alp = {
   ...core,
   fills,
@@ -417,12 +428,10 @@ export const alp = {
   find: globalFind,
   mk: (tagEnd) => mk(tagEnd, defs[tagEnd]?.initState || {}),
 
-  // Path utilities
   path,
   parsePath,
   buildPath,
 
-  // Database management
   createDb: dbManager.createDb,
   createStore: dbManager.createStore,
   listDbs: dbManager.listDbs,
@@ -431,12 +440,43 @@ export const alp = {
   hasStore: dbManager.hasStore,
   deleteDb: dbManager.deleteDb,
 
-  // Persistence status
   get persistent() { return dbManager.isPersistent(); }
 };
+
+// === BIND PROXIES ===
+window.alp.bind(alp);
+window.alp.kit.bind(alp.kit);
+window.alp.fills.bind(alp.fills);
 
 if (alp.persistent) {
   console.log('✅ Alp Core loaded');
 } else {
   console.log('✅ Alp Core loaded (memory mode)');
 }
+
+// === SOURCE STORAGE ===
+const coreSrc = ['alp.js', 'core.js', 'utils/fills.js', 'utils/kit.js'];
+const storeSources = async (componentFiles) => {
+  const ns = 'alp-src';
+  const all = [...coreSrc, ...componentFiles.map(c => `components/${c}`)];
+  await db[DEFAULT_STORE].where('name').startsWith(`${ns}.`).delete();
+  await Promise.all(all.map(f =>
+    fetch(v(f)).then(r => r.text()).then(src =>
+      db[DEFAULT_STORE].put({ name: `${ns}.${f.replace(/\//g, '.')}`, data: src })
+    )
+  ));
+  console.log(`📄 Stored ${all.length} source files`);
+};
+
+// === COMPONENT LOADING ===
+const { components } = await import(v('components/index.js'));
+console.log('✅ components/index.js imported', components);
+
+await Promise.all([
+  storeSources(components),
+  ...components.map(c => import(v(`components/${c}`)).then(() => console.log(`✅ ${c} loaded`)))
+]);
+
+// === ALPINE.JS LOADING ===
+await js('https://unpkg.com/alpinejs@3');
+console.log('🎨 Alpine.js loaded');
