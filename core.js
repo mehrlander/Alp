@@ -61,9 +61,19 @@ const css = href => document.head.appendChild(el('link', { rel: 'stylesheet', hr
 css('https://cdn.jsdelivr.net/combine/npm/daisyui@5/themes.css,npm/daisyui@5,npm/tabulator-tables/dist/css/tabulator_simple.min.css');
 
 // === CDN LOADING ===
-const js = src => new Promise((ok, err) => document.head.appendChild(el('script', { src, onload: ok, onerror: err })));
-await js('https://cdn.jsdelivr.net/combine/npm/@tailwindcss/browser@4,npm/@phosphor-icons/web,npm/dexie@4,npm/tabulator-tables');
-console.log('📦 Alp deps loaded');
+const showError = window.__alpShowError || ((msg) => console.error('[Alp]', msg));
+const js = src => new Promise((ok, err) => {
+  const script = el('script', { src, onload: ok, onerror: () => err(new Error(`Failed to load: ${src}`)) });
+  document.head.appendChild(script);
+});
+
+try {
+  await js('https://cdn.jsdelivr.net/combine/npm/@tailwindcss/browser@4,npm/@phosphor-icons/web,npm/dexie@4,npm/tabulator-tables');
+  console.log('📦 Alp deps loaded');
+} catch (err) {
+  showError(`CDN loading failed: ${err.message}`);
+  throw err;
+}
 
 // === IMPORT LOCAL MODULES WITH VERSIONING ===
 const { fills } = await import(v('utils/fills.js'));
@@ -98,7 +108,7 @@ if (indexedDBAvailable) {
   dbManager.registerDb(DEFAULT_DB, db, [DEFAULT_STORE]);
 } else {
   dbManager.setPersistent(false);
-  console.warn('⚠️ IndexedDB not available - using in-memory storage. Data will not persist across page refreshes.');
+  showError('IndexedDB not available - using in-memory storage. Data will not persist.', 'warn');
   db = new MemoryDb(DEFAULT_DB);
   db.version(1).stores({ [DEFAULT_STORE]: 'name' });
   await db.open();
@@ -417,7 +427,8 @@ const core = {
   safeStore,
   define,
   ping,
-  isValidPath
+  isValidPath,
+  showError
 };
 
 // === PUBLIC API ===
