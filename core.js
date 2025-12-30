@@ -435,10 +435,21 @@ const storeSources = async (componentFiles) => {
 const { components } = await import(v('components/index.js'));
 console.log('✅ components/index.js imported', components);
 
-await Promise.all([
-  storeSources(components),
-  ...components.map(c => import(v(`components/${c}`)).then(() => console.log(`✅ ${c} loaded`)))
-]);
+for (const c of components) {
+  try {
+    console.log(`⏳ Loading ${c}...`);
+    await import(v(`components/${c}`));
+    console.log(`✅ ${c} loaded`);
+  } catch (err) {
+    console.error(`❌ ${c} failed:`, err);
+  }
+}
+
+await storeSources(components);
+
+console.log('📍 About to load Alpine');
+await js('https://unpkg.com/alpinejs@3');
+console.log('🎨 Alpine.js loaded');
 
 // === ALPINE.JS LOADING ===
 await js('https://unpkg.com/alpinejs@3');
