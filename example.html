@@ -3,61 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Alp Framework Example</title>
+  <title>Alp - Hello World</title>
 </head>
 <body class="p-8">
-  <h1 class="text-4xl font-bold mb-6">Alp Framework Example</h1>
+  <!--
+    Minimal Alp example - open this file in a browser to verify it works.
+    For more examples and tutorials, see FirstSamples.md
+  -->
 
-  <div class="space-y-4">
-    <h2 class="text-2xl font-semibold">Counter Component</h2>
-    <alp-counter></alp-counter>
-  </div>
+  <h1 class="text-3xl font-bold mb-4">Alp Counter</h1>
+  <alp-counter></alp-counter>
 
-  <!-- Load Alp from jsdelivr -->
   <script src="https://cdn.jsdelivr.net/gh/mehrlander/Alp@main/alp.js"></script>
-
-  <!-- Define a simple counter component -->
   <script>
-    alp.define('counter', (pathAttr) => `
-      <div class="card bg-base-200 shadow-xl p-6 max-w-md">
-        <h3 class="text-xl font-semibold mb-4">Counter Example</h3>
+    alp.define('counter', () => `
+      <div class="card bg-base-200 p-6 max-w-xs">
         <div class="flex items-center gap-4">
-          <button
-            @click="count--"
-            class="btn btn-primary"
-          >
-            -
-          </button>
-          <div class="text-2xl font-bold" x-text="count"></div>
-          <button
-            @click="count++"
-            class="btn btn-primary"
-          >
-            +
-          </button>
-        </div>
-        <div class="mt-4">
-          <button
-            @click="save({ count })"
-            class="btn btn-success"
-          >
-            💾 Save
-          </button>
-          <button
-            @click="load().then(d => d && (count = d.count))"
-            class="btn btn-info"
-          >
-            📂 Load
-          </button>
-          <button
-            @click="del(); count = 0"
-            class="btn btn-error"
-          >
-            🗑️ Delete
-          </button>
-        </div>
-        <div class="mt-2 text-sm opacity-70">
-          Path: <span x-text="_path"></span>
+          <button @click="count--" class="btn btn-circle">-</button>
+          <span class="text-3xl font-bold" x-text="count"></span>
+          <button @click="count++" class="btn btn-circle">+</button>
         </div>
       </div>
     `, { count: 0 });
