@@ -1,7 +1,4 @@
 // components/bill-table-nested.js - Bill Table using nested alp-tb component
-
-import { alp } from '../core.js';
-
 alp.define('bill-table-nested', _ => `
   <div class="flex flex-col h-full bg-base-100 p-2 gap-2 text-sm">
     <!-- Filters Row -->
