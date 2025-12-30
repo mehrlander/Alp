@@ -21,6 +21,14 @@
     tokenLength: GH_TOKEN.length,
     hasPlaceholder: GH_TOKEN.includes('🎟️')
   });
+
+  // Quick diagnostic - add temporarily
+console.log('🔬 Token analysis:', {
+  raw: GH_TOKEN,
+  codePoints: [...GH_TOKEN].map(c => c.codePointAt(0).toString(16)),
+  includesTicket: GH_TOKEN.includes('🎟️'),
+  includesTicketNoVariant: GH_TOKEN.includes('🎟')
+});
   
   // Fetch latest commit SHA from GitHub
   const fetchSha = async () => {
