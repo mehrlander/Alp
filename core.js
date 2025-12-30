@@ -1,34 +1,26 @@
 // core.js - Alp Framework Core Module
-// Loaded by alp.js with version cache-busting
-
 const VERSION = window.__alp?.version || '';
 const versionSuffix = VERSION ? `?v=${VERSION}` : '';
 
-// Helper to build versioned import URLs
 const BASE = (() => {
-  // Try to determine base from import.meta.url
   try {
     const url = new URL(import.meta.url);
-    url.search = ''; // Remove query params
+    url.search = '';
     return url.href.replace(/[^/]+$/, '');
-  } catch {
-    return '';
-  }
+  } catch { return ''; }
 })();
 
 const v = (path) => `${BASE}${path}${versionSuffix}`;
 
-// === CSS LOADING ===
+// === CSS & JS LOADING ===
 const el = (t, a) => Object.assign(document.createElement(t), a);
 const css = href => document.head.appendChild(el('link', { rel: 'stylesheet', href }));
-css('https://cdn.jsdelivr.net/combine/npm/daisyui@5/themes.css,npm/daisyui@5,npm/tabulator-tables/dist/css/tabulator_simple.min.css');
-
-// === CDN LOADING ===
 const js = src => new Promise((ok, err) => document.head.appendChild(el('script', { src, onload: ok, onerror: err })));
-await js('https://cdn.jsdelivr.net/combine/npm/@tailwindcss/browser@4,npm/@phosphor-icons/web,npm/dexie@4,npm/tabulator-tables');
-console.log('📦 Alp deps loaded');
 
-// === IMPORT LOCAL MODULES WITH VERSIONING ===
+css('https://cdn.jsdelivr.net/combine/npm/daisyui@5/themes.css,npm/daisyui@5,npm/tabulator-tables/dist/css/tabulator_simple.min.css');
+await js('https://cdn.jsdelivr.net/combine/npm/@tailwindcss/browser@4,npm/@phosphor-icons/web,npm/dexie@4,npm/tabulator-tables');
+
+// === IMPORT LOCAL MODULES ===
 const { fills } = await import(v('utils/fills.js'));
 const { kit } = await import(v('utils/kit.js'));
 const { parsePath, buildPath, buildFullPath, path, DEFAULT_DB, DEFAULT_STORE } = await import(v('utils/path.js'));
@@ -61,7 +53,7 @@ if (indexedDBAvailable) {
   dbManager.registerDb(DEFAULT_DB, db, [DEFAULT_STORE]);
 } else {
   dbManager.setPersistent(false);
-  console.warn('⚠️ IndexedDB not available - using in-memory storage. Data will not persist across page refreshes.');
+  console.warn('⚠️ IndexedDB unavailable - using memory storage');
   db = new MemoryDb(DEFAULT_DB);
   db.version(1).stores({ [DEFAULT_STORE]: 'name' });
   await db.open();
@@ -92,16 +84,9 @@ const unreg = (p, x) => {
 
 const ping = (p, data, occasion = 'data') => {
   const key = canonicalPath(p);
-  const s = pathRegistry[key];
-  if (s) {
-    s.forEach(x => x.onPing?.(occasion, data));
-  }
-
+  pathRegistry[key]?.forEach(x => x.onPing?.(occasion, data));
   if (occasion === 'save-record' || occasion === 'delete-record') {
-    const inspector = globalFind('alp-inspector');
-    if (inspector?.onPing) {
-      inspector.onPing(occasion, { path: p, data });
-    }
+    globalFind('alp-inspector')?.onPing?.(occasion, { path: p, data });
   }
 };
 
@@ -115,12 +100,9 @@ const createComponentProxy = (el) => {
     queue = [];
     pendingProxies.set(el, queue);
   }
-
   return new Proxy({}, {
     get(_, method) {
-      if (method === 'then') {
-        return (resolve, reject) => getReadyPromise(el).then(resolve, reject);
-      }
+      if (method === 'then') return (resolve, reject) => getReadyPromise(el).then(resolve, reject);
       return (...args) => {
         if (el.data?._isReady) {
           const fn = el.data[method];
@@ -134,10 +116,8 @@ const createComponentProxy = (el) => {
 
 const getReadyPromise = (el) => {
   if (!el) return Promise.resolve(null);
-
   if (el.tagName.startsWith('ALP-')) {
     if (el.data?._isReady) return Promise.resolve(el.data);
-
     let entry = readyPromises.get(el);
     if (!entry) {
       let resolve;
@@ -154,84 +134,54 @@ const getReadyPromise = (el) => {
 const load = async (filter = {}) => {
   const result = {};
   const dbsToCheck = filter.db ? [filter.db] : dbManager.listDbs();
-
   for (const dbName of dbsToCheck) {
     const storesToCheck = filter.store ? [filter.store] : dbManager.listStores(dbName);
-
     for (const storeName of storesToCheck) {
       if (!dbManager.hasStore(dbName, storeName)) continue;
-
       const table = dbManager.getStore(dbName, storeName);
       const records = await table.toArray();
-
       const groupKey = `${dbName}/${storeName}`;
       result[groupKey] = records.map(({ name, data }) => {
         const [namespace, ...rest] = name.split('.');
-        return {
-          key: name,
-          fullPath: buildPath(dbName, storeName, name),
-          namespace,
-          sig: rest.join('.'),
-          data
-        };
+        return { key: name, fullPath: buildPath(dbName, storeName, name), namespace, sig: rest.join('.'), data };
       });
     }
   }
-
   return result;
 };
 
 const loadRecord = async (fullPath) => {
   const { db: dbName, store, record } = parsePath(fullPath);
-
   if (!dbManager.has(dbName, store)) {
-    throw new Error(
-      !dbManager.hasDb(dbName)
-        ? `Database '${dbName}' not found. Use alp.createDb('${dbName}', ['${store}']) to create it.`
-        : `Store '${store}' not found in database '${dbName}'. Use alp.createStore('${dbName}', '${store}') to create it.`
-    );
+    throw new Error(!dbManager.hasDb(dbName)
+      ? `Database '${dbName}' not found. Use alp.createDb('${dbName}', ['${store}'])`
+      : `Store '${store}' not found in '${dbName}'. Use alp.createStore('${dbName}', '${store}')`);
   }
-
-  const table = dbManager.getStore(dbName, store);
-  const r = await table.get(record);
+  const r = await dbManager.getStore(dbName, store).get(record);
   return r?.data;
 };
 
 const saveRecord = async (fullPath, data) => {
   const { db: dbName, store, record } = parsePath(fullPath);
-
   if (!dbManager.has(dbName, store)) {
-    throw new Error(
-      !dbManager.hasDb(dbName)
-        ? `Database '${dbName}' not found. Use alp.createDb('${dbName}', ['${store}']) to create it.`
-        : `Store '${store}' not found in database '${dbName}'. Use alp.createStore('${dbName}', '${store}') to create it.`
-    );
+    throw new Error(!dbManager.hasDb(dbName)
+      ? `Database '${dbName}' not found. Use alp.createDb('${dbName}', ['${store}'])`
+      : `Store '${store}' not found in '${dbName}'. Use alp.createStore('${dbName}', '${store}')`);
   }
-
-  const table = dbManager.getStore(dbName, store);
-  await table.put({ name: record, data });
-
-  const displayFullPath = buildPath(dbName, store, record);
-  console.log(`💾 ${displayFullPath}:`, data);
+  await dbManager.getStore(dbName, store).put({ name: record, data });
+  console.log(`💾 ${buildPath(dbName, store, record)}:`, data);
   ping(fullPath, data, 'save-record');
 };
 
 const deleteRecord = async (fullPath) => {
   const { db: dbName, store, record } = parsePath(fullPath);
-
   if (!dbManager.has(dbName, store)) {
-    throw new Error(
-      !dbManager.hasDb(dbName)
-        ? `Database '${dbName}' not found. Use alp.createDb('${dbName}', ['${store}']) to create it.`
-        : `Store '${store}' not found in database '${dbName}'. Use alp.createStore('${dbName}', '${store}') to create it.`
-    );
+    throw new Error(!dbManager.hasDb(dbName)
+      ? `Database '${dbName}' not found. Use alp.createDb('${dbName}', ['${store}'])`
+      : `Store '${store}' not found in '${dbName}'. Use alp.createStore('${dbName}', '${store}')`);
   }
-
-  const table = dbManager.getStore(dbName, store);
-  await table.delete(record);
-
-  const displayFullPath = buildPath(dbName, store, record);
-  console.log(`🗑️ ${displayFullPath}`);
+  await dbManager.getStore(dbName, store).delete(record);
+  console.log(`🗑️ ${buildPath(dbName, store, record)}`);
   ping(fullPath, null, 'delete-record');
 };
 
@@ -245,15 +195,10 @@ const safeStore = (s, map) => map[s] ? s : (Object.keys(map)[0] || DEFAULT_STORE
 // === ALP BASE CLASS ===
 class Alp extends HTMLElement {
   connectedCallback() {
-    const render = () => {
-      this.innerHTML = this.tpl();
-      Alpine.initTree(this);
-    };
+    const render = () => { this.innerHTML = this.tpl(); Alpine.initTree(this); };
     window.Alpine ? render() : document.addEventListener('alpine:init', render, { once: 1 });
   }
-
   tpl() { return ''; }
-
   disconnectedCallback() {
     const d = this.data;
     d && unreg(d._path, d);
@@ -267,42 +212,25 @@ const defs = Object.create(null);
 const mk = (tagEnd, initState = {}) => {
   const defaultPath = `alp.${tagEnd}`;
   return {
-    ...initState,
-    tagEnd,
-    el: null,
-    host: null,
-    defaultPath,
-    _path: defaultPath,
-
+    ...initState, tagEnd, el: null, host: null, defaultPath, _path: defaultPath, _isReady: false,
     get path() { return this._path; },
     set path(p) {
       p = (p ?? '').trim() || this.defaultPath;
-      if (p === this._path) {
-        this.onPing?.('path');
-        return;
-      }
+      if (p === this._path) { this.onPing?.('path'); return; }
       unreg(this._path, this);
       this._path = p;
       reg(this._path, this);
       this.onPing?.('path');
     },
-
-    _isReady: false,
-
     find(s) {
       const el = this.el?.querySelector(s);
       if (!el) return null;
-      if (el.tagName.startsWith('ALP-')) {
-        if (el.data?._isReady) return el.data;
-        return createComponentProxy(el);
-      }
+      if (el.tagName.startsWith('ALP-')) return el.data?._isReady ? el.data : createComponentProxy(el);
       return el;
     },
-
     declareReady() {
       if (this._isReady) return;
       this._isReady = true;
-
       if (this.host) {
         const queue = pendingProxies.get(this.host);
         if (queue) {
@@ -312,24 +240,16 @@ const mk = (tagEnd, initState = {}) => {
             if (typeof fn === 'function') fn.apply(this, args);
           });
         }
-
         const entry = readyPromises.get(this.host);
-        if (entry) {
-          readyPromises.delete(this.host);
-          entry.resolve(this);
-        }
-
+        if (entry) { readyPromises.delete(this.host); entry.resolve(this); }
         const attrs = {};
-        for (const attr of this.host.attributes) {
-          attrs[attr.name] = attr.value;
-        }
+        for (const attr of this.host.attributes) attrs[attr.name] = attr.value;
         ping(this._path, attrs, 'ready');
       }
     },
     save(d) { return saveRecord(this._path, d); },
     load() { return loadRecord(this._path); },
     del() { return deleteRecord(this._path); },
-
     async mount(el) {
       this.el = el;
       this.host = el.closest(`alp-${tagEnd}`);
@@ -338,9 +258,7 @@ const mk = (tagEnd, initState = {}) => {
       if (p) this._path = p;
       reg(this._path, this);
       if (this.host) this.host.data = this;
-
       await this.onPing?.('mount');
-
       if (!this._isReady) this.declareReady();
     }
   };
@@ -348,61 +266,30 @@ const mk = (tagEnd, initState = {}) => {
 
 const define = (tagEnd, tplFn, initState = {}) => {
   defs[tagEnd] = { initState, tplFn };
-
   class C extends Alp {
-    tpl() {
-      return `<div x-data="alp.mk('${tagEnd}')" x-init="mount($el)" class="h-full overflow-hidden">${tplFn('path')}</div>`;
-    }
+    tpl() { return `<div x-data="alp.mk('${tagEnd}')" x-init="mount($el)" class="h-full overflow-hidden">${tplFn('path')}</div>`; }
   }
-
   customElements.define(`alp-${tagEnd}`, C);
 };
 
 const globalFind = (s) => {
   const el = document.querySelector(s);
   if (!el) return null;
-  if (el.tagName.startsWith('ALP-')) {
-    if (el.data?._isReady) return el.data;
-    return createComponentProxy(el);
-  }
+  if (el.tagName.startsWith('ALP-')) return el.data?._isReady ? el.data : createComponentProxy(el);
   return el;
 };
 
-// === CORE API ===
-const core = {
-  db,
-  pathRegistry,
-  consoleLogs,
-  load,
-  loadRecord,
-  saveRecord,
-  deleteRecord,
-  safeStore,
-  define,
-  ping,
-  isValidPath
-};
-
 // === PUBLIC API ===
+const core = { db, pathRegistry, consoleLogs, load, loadRecord, saveRecord, deleteRecord, safeStore, define, ping, isValidPath };
+
 export const alp = {
-  ...core,
-  fills,
-  kit,
+  ...core, fills, kit,
   find: globalFind,
   mk: (tagEnd) => mk(tagEnd, defs[tagEnd]?.initState || {}),
-
-  path,
-  parsePath,
-  buildPath,
-
-  createDb: dbManager.createDb,
-  createStore: dbManager.createStore,
-  listDbs: dbManager.listDbs,
-  listStores: dbManager.listStores,
-  hasDb: dbManager.hasDb,
-  hasStore: dbManager.hasStore,
-  deleteDb: dbManager.deleteDb,
-
+  path, parsePath, buildPath,
+  createDb: dbManager.createDb, createStore: dbManager.createStore,
+  listDbs: dbManager.listDbs, listStores: dbManager.listStores,
+  hasDb: dbManager.hasDb, hasStore: dbManager.hasStore, deleteDb: dbManager.deleteDb,
   get persistent() { return dbManager.isPersistent(); }
 };
 
@@ -410,55 +297,28 @@ export const alp = {
 window.alp.bind(alp);
 window.alp.kit.bind(alp.kit);
 window.alp.fills.bind(alp.fills);
-
-if (alp.persistent) {
-  console.log('✅ Alp Core loaded');
-} else {
-  console.log('✅ Alp Core loaded (memory mode)');
-}
+console.log(`✅ Alp Core${alp.persistent ? '' : ' (memory)'}`);
 
 // === SOURCE STORAGE ===
 const coreSrc = ['alp.js', 'core.js', 'utils/fills.js', 'utils/kit.js'];
-const storeSources = async (componentFiles) => {
+const storeSources = async (files) => {
   const ns = 'alp-src';
-  const all = [...coreSrc, ...componentFiles.map(c => `components/${c}`)];
+  const all = [...coreSrc, ...files.map(c => `components/${c}`)];
   await db[DEFAULT_STORE].where('name').startsWith(`${ns}.`).delete();
   await Promise.all(all.map(f =>
     fetch(v(f)).then(r => r.text()).then(src =>
       db[DEFAULT_STORE].put({ name: `${ns}.${f.replace(/\//g, '.')}`, data: src })
     )
   ));
-  console.log(`📄 Stored ${all.length} source files`);
 };
 
-// === COMPONENT LOADING ===
+// === COMPONENT & ALPINE LOADING ===
 const { components } = await import(v('components/index.js'));
-console.log('✅ components/index.js imported', components);
-
-for (const c of components) {
-  try {
-    console.log(`⏳ Loading ${c}...`);
-    await import(v(`components/${c}`));
-    console.log(`✅ ${c} loaded`);
-  } catch (err) {
-    console.error(`❌ ${c} failed:`, err);
-  }
-}
-
+await Promise.all(components.map(c => import(v(`components/${c}`))));
 await storeSources(components);
+console.log(`✅ ${components.length} components loaded`);
 
-console.log('📍 About to load Alpine');
-await js('https://unpkg.com/alpinejs@3');
-console.log('🎨 Alpine.js loaded');
-
-// === ALPINE.JS LOADING ===
-await js('https://unpkg.com/alpinejs@3');
-console.log('🎨 Alpine.js loaded');
-
-// End of core.js
-try {
+if (!window.Alpine) {
   await js('https://unpkg.com/alpinejs@3');
-  console.log('🎨 Alpine.js loaded');
-} catch (err) {
-  console.error('❌ Alpine failed to load:', err);
+  console.log('🎨 Alpine loaded');
 }
