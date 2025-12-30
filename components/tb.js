@@ -1,7 +1,4 @@
 // components/tb.js - Lean Tabulator wrapper
-
-import { alp } from '../core.js';
-
 alp.define('tb', _ => `
   <div class="flex flex-col h-full bg-base-100 p-2 gap-2 text-sm">
     <div class="flex items-center gap-4 text-xs">
