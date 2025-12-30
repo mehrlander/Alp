@@ -2,6 +2,8 @@
 
 Copy-paste these examples into an HTML file to try Alp. Each builds on the previous one.
 
+> **Note:** The `🎟️GitHubToken` placeholder in the script URLs will be automatically replaced with your GitHub token if you're viewing this through a token-aware system. If copying manually, you can either replace it with your own GitHub token to avoid API rate limits, or simply remove the `?token=...` parameter entirely—the framework will still work.
+
 ---
 
 ## Example 1: Basic Counter
@@ -23,7 +25,7 @@ The simplest Alp component. Click the buttons to change the count.
 
   <alp-counter></alp-counter>
 
-  <script src="https://cdn.jsdelivr.net/gh/mehrlander/Alp@main/alp.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/mehrlander/Alp@main/alp.js?token=🎟️GitHubToken"></script>
   <script>
     alp.define('counter', () => `
       <div class="card bg-base-200 p-6 max-w-xs">
@@ -70,7 +72,7 @@ A note that saves to IndexedDB. Your text persists across page refreshes.
   <!-- Custom path: notes.shopping -->
   <alp-note path="notes.shopping" class="mt-4"></alp-note>
 
-  <script src="https://cdn.jsdelivr.net/gh/mehrlander/Alp@main/alp.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/mehrlander/Alp@main/alp.js?token=🎟️GitHubToken"></script>
   <script>
     alp.define('note', () => `
       <div class="card bg-base-200 p-6 max-w-md">
@@ -152,7 +154,7 @@ Two components that communicate. Saving in one updates the other.
     </button>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/gh/mehrlander/Alp@main/alp.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/mehrlander/Alp@main/alp.js?token=🎟️GitHubToken"></script>
   <script>
     // Editor component - allows editing and saving
     alp.define('editor', () => `
