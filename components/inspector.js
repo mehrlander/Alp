@@ -1,5 +1,4 @@
 // components/inspector.js - Alp Inspector Component
-import { alp } from '../core.js';
 const { modal } = alp.fills;
 
 alp.define('inspector', _ => modal(`
