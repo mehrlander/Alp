@@ -1,7 +1,4 @@
 // components/tb-nested.js - Simplest possible nested alp-tb example
-
-import { alp } from '../core.js';
-
 alp.define('tb-nested', _ => `
   <div class="flex flex-col h-full bg-base-100 p-4 gap-3 text-sm">
     <div class="text-lg font-semibold">Nested Table Example</div>
