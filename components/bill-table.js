@@ -1,7 +1,4 @@
 // components/bill-table.js - WA Legislature Bill Table Component
-
-import { alp } from '../core.js';
-
 alp.define('bill-table', _ => `
   <div class="flex flex-col h-full bg-base-100 p-2 gap-2 text-sm">
     <!-- Filters Row -->
