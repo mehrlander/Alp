@@ -2,6 +2,10 @@
 (() => {
   'use strict';
   
+  // Prevent multiple initialization
+  if (window.__alp_init) return;
+  window.__alp_init = true;
+  
   // === PROXY QUEUE (immediately available) ===
   const qProxy = (opts = {}) => new Proxy(() => {}, (() => {
     let t, ready = 0, q = [];
@@ -32,7 +36,7 @@
       apply: (_, __, a) => { if ((ready & 3) && t) return t(...a); q.push([[], a]); }
     };
   })());
-
+  
   const alpineReady = go => document.addEventListener('alpine:init', go, { once: 1 });
   const kitProxy = qProxy({ onReady: alpineReady, nested: true });
   const fillsProxy = qProxy({ onReady: alpineReady });
