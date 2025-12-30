@@ -4,7 +4,7 @@ Create utilities to store and work with data in the browser.
 
 ## Core Concepts
 
-**Data** — Data arrives from clipboard, file, API, user input. Storage is handled through IndexedDB.
+**Data** — Data arrives from clipboard, file, API, user input. Storage is handled through IndexedDB, with automatic fallback to in-memory storage when IndexedDB is unavailable.
 
 **Paths** — A path is an address in your data layer to an IndexedDB record. Paths can span multiple databases and stores. Components bind to a path and can watch activity on it.
 
@@ -15,6 +15,151 @@ Create utilities to store and work with data in the browser.
 **Queues** — Proxy-based queues smooth over async timing. Call things before they're ready; calls queue and replay.
 
 **Kits** — Adapter layer for external libraries or common functionality. Shared setup available everywhere.
+
+---
+
+## Versioning & Loading
+
+Alp uses GitHub's commit SHA for cache-busting and version tracking. The framework ensures you always load the latest code without browser cache issues.
+
+### How It Works
+
+When you load `alp.js`, it fetches the latest commit SHA from GitHub and uses it to version all module imports:
+
+```html
+<script src="alp.js"></script>
+```
+
+The boot sequence:
+1. Fetch latest commit SHA from `https://api.github.com/repos/mehrlander/Alp/commits/main`
+2. Store version in `window.__alp.version` (7-char SHA or timestamp fallback)
+3. Load all modules with `?v={version}` query param for cache-busting
+4. Console logs current version: `📌 Alp version: 7aa350e`
+
+### GitHub Token Authentication
+
+To avoid GitHub API rate limits (60 requests/hour unauthenticated), pass a personal access token:
+
+```html
+<script src="alp.js?token=YOUR_GITHUB_TOKEN"></script>
+```
+
+The token is:
+- Parsed from query parameters
+- Stored in `window.__alp.token` and `window.__alp.isAuth`
+- Used for authenticated API calls (5000 requests/hour)
+- Only needs read access to public repositories
+
+### Version Fallback
+
+If the GitHub API is unreachable or rate-limited, versioning falls back to a timestamp:
+
+```js
+// Fallback version when SHA fetch fails
+const version = Date.now().toString(36); // e.g., "lq8x9k2"
+console.log('📌 Alp version: fallback (no SHA)');
+```
+
+All modules still load with cache-busting, just without the semantic GitHub SHA.
+
+### Accessing Version Info
+
+```js
+// Get current version
+window.__alp.version;  // '7aa350e' or timestamp
+
+// Check if authenticated
+window.__alp.isAuth;   // true/false
+
+// Access token (if provided)
+window.__alp.token;    // 'ghp_...' or ''
+```
+
+---
+
+## Storage Modes
+
+Alp automatically detects whether IndexedDB is available and falls back to in-memory storage when needed. This ensures the framework works in all environments.
+
+### Persistent Mode (Default)
+
+When IndexedDB is available:
+- All data stored in IndexedDB via Dexie
+- Data persists across page refreshes
+- Multiple databases and stores supported
+- Console: `✅ Alp Core loaded`
+
+### Memory Mode (Fallback)
+
+When IndexedDB is unavailable (Safari data URLs, certain sandboxed contexts):
+- All data stored in JavaScript Map objects
+- Data lost on page refresh
+- Full API compatibility with Dexie interface
+- Console: `✅ Alp Core loaded (memory mode)` + warning
+
+### Detection
+
+The framework tests IndexedDB at boot by attempting to open a test database:
+
+```js
+// From utils/memory-db.js
+export const isIndexedDBAvailable = async () => {
+  if (typeof indexedDB === 'undefined') return false;
+
+  try {
+    const request = indexedDB.open('__alp_indexeddb_test__', 1);
+    return new Promise((resolve) => {
+      request.onerror = () => resolve(false);
+      request.onsuccess = () => {
+        request.result.close();
+        indexedDB.deleteDatabase('__alp_indexeddb_test__');
+        resolve(true);
+      };
+    });
+  } catch {
+    return false;
+  }
+};
+```
+
+This catches:
+- Safari's data URL restrictions
+- Private browsing limitations
+- Other runtime availability issues
+
+### Checking Storage Mode
+
+```js
+// Check if data will persist
+if (alp.persistent) {
+  console.log('Data persists across refreshes');
+} else {
+  console.warn('Data is in-memory only');
+}
+```
+
+### Memory Database Implementation
+
+The `MemoryDb` class (from `utils/memory-db.js`) provides full Dexie API compatibility:
+
+```js
+class MemoryDb {
+  version(n) { /* ... */ }
+  open() { /* ... */ }
+  close() { /* ... */ }
+
+  // Tables use Map for storage
+  [storeName]: MemoryTable {
+    async get(key) { /* ... */ }
+    async put(record) { /* ... */ }
+    async delete(key) { /* ... */ }
+    async toArray() { /* ... */ }
+    where(field).startsWith(prefix) { /* ... */ }
+  }
+}
+```
+
+All database operations work identically in both modes—the only difference is persistence.
 
 ---
 
@@ -340,16 +485,54 @@ Kits handle CDN loading, initialization, and provide a consistent API.
 
 ## Boot Sequence
 
+The framework loads in a specific sequence to handle versioning, storage initialization, and dependency management:
+
 ```
-alp.js (entry)
+alp.js (entry point)
+  └─ Parse token from query params (?token=...)
+  └─ Fetch latest commit SHA from GitHub API
+      ├─ Success: version = SHA.slice(0,7)  (e.g., '7aa350e')
+      └─ Failure: version = Date.now().toString(36)  (fallback)
+  └─ Set window.__alp = { version, token, isAuth }
+  └─ Log version: '📌 Alp version: {sha|fallback}'
+  └─ Import core.js?v={version}
+
+core.js
   └─ Create proxy queues (window.alp, alp.kit, alp.fills)
-  └─ Load CDN deps (Tailwind, DaisyUI, Dexie, Tabulator, Phosphor icons)
-  └─ Import core.js → bind real alp to proxy
-  └─ Import components/index.js → load each component
-  └─ Load Alpine.js last (triggers alpine:init)
+  └─ Load CDN dependencies (Tailwind, DaisyUI, Dexie, Tabulator, Phosphor icons)
+  └─ Import utils (fills, kit, path, db-manager, memory-db) with version
+  └─ Console capture setup
+  └─ Database initialization:
+      ├─ Test IndexedDB availability (isIndexedDBAvailable)
+      ├─ If available: new Dexie('AlpDB')
+      └─ If unavailable: new MemoryDb('AlpDB') + warning
+  └─ Register default database with dbManager
+  └─ Import components/index.js?v={version}
+  └─ Load all component modules in parallel with version
+  └─ Store source code in database (for inspection)
+  └─ Load Alpine.js (triggers alpine:init event)
+  └─ Bind real implementations to proxy queues
+  └─ Log: '✅ Alp Core loaded [(memory mode)]'
 ```
 
-The proxy queue allows calling methods before implementations load. Calls are queued and replayed once bound. This lets you reference `alp.kit.jse()` in component definitions even though the kit loader hasn't loaded yet.
+### Proxy Queue System
+
+The proxy queue allows calling methods before implementations load:
+
+```js
+// Early in boot - alp is just a proxy queue
+window.alp.saveRecord('data.foo', { bar: 123 });  // Queued!
+
+// Later in boot - real implementation bound
+window.alp.bind(realAlpImplementation);  // Queue replays
+```
+
+This eliminates timing issues:
+- Reference `alp.kit.jse()` in component definitions
+- Call `alp.saveRecord()` before core.js loads
+- Use `alp.fills.btn()` before fills.js imports
+
+All calls queue and replay in order once the real implementation binds. The same pattern applies to `alp.kit` (nested proxy) and `alp.fills`.
 
 ---
 
@@ -365,6 +548,22 @@ alp.consoleLogs
 ```
 
 Useful for building in-app debug panels or capturing errors before devtools opened.
+
+### Storage Persistence
+
+Check whether data persists across page refreshes:
+
+```js
+// Check storage mode
+alp.persistent  // true = IndexedDB, false = memory
+
+// Example: warn users in memory mode
+if (!alp.persistent) {
+  alert('⚠️ Running in memory mode. Data will not persist.');
+}
+```
+
+Useful for displaying warnings or disabling features that require persistence.
 
 ### Inspector
 
