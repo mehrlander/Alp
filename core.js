@@ -443,3 +443,11 @@ await Promise.all([
 // === ALPINE.JS LOADING ===
 await js('https://unpkg.com/alpinejs@3');
 console.log('🎨 Alpine.js loaded');
+
+// End of core.js
+try {
+  await js('https://unpkg.com/alpinejs@3');
+  console.log('🎨 Alpine.js loaded');
+} catch (err) {
+  console.error('❌ Alpine failed to load:', err);
+}
