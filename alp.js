@@ -1,8 +1,44 @@
 // alp.js - Minimal entry point with GitHub SHA-based versioning
-// Pass token via query param: <script src="alp.js?token=YOUR_TOKEN"></script>
 (() => {
   'use strict';
   
+  // === PROXY QUEUE (immediately available) ===
+  const qProxy = (opts = {}) => new Proxy(() => {}, (() => {
+    let t, ready = 0, q = [];
+    const { nested, onReady, props } = opts;
+    const go = () => {
+      if (!(ready & 3) || !t) return;
+      while (q.length) {
+        const [path, a] = q.shift();
+        let obj = t;
+        for (const k of path) obj = obj[k];
+        obj(...a);
+      }
+    };
+    if (onReady) onReady(() => { ready |= 2; go(); });
+    else ready |= 2;
+    return {
+      get: (_, k) => k === '__q' ? 1
+        : k === 'bind' ? o => (t = o, ready |= 1, go(), o)
+        : props?.[k] !== undefined ? props[k]
+        : nested
+          ? new Proxy(() => {}, {
+              apply: (_, __, a) => { if ((ready & 3) && t) return t[k](...a); q.push([[k], a]); },
+              get: (_, m) => (...a) => { if ((ready & 3) && t) return t[k][m](...a); q.push([[k, m], a]); }
+            })
+          : (ready & 3) && t && (k in t) && typeof t[k] !== 'function'
+            ? t[k]
+            : (...a) => { if ((ready & 3) && t) return t[k](...a); q.push([[k], a]); },
+      apply: (_, __, a) => { if ((ready & 3) && t) return t(...a); q.push([[], a]); }
+    };
+  })());
+
+  const alpineReady = go => document.addEventListener('alpine:init', go, { once: 1 });
+  const kitProxy = qProxy({ onReady: alpineReady, nested: true });
+  const fillsProxy = qProxy({ onReady: alpineReady });
+  window.alp = qProxy({ onReady: alpineReady, props: { kit: kitProxy, fills: fillsProxy } });
+  
+  // === AUTH & VERSIONING ===
   const params = new URL(document.currentScript.src).searchParams;
   const GH_TOKEN = params.get('token') || '';
   const isAuth = GH_TOKEN && !GH_TOKEN.includes('🎟');
