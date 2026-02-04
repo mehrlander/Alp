@@ -1,7 +1,6 @@
 // components/inspector.js - Alp Inspector Component
-const { modal } = alp.fills;
 
-alp.define('inspector', _ => modal(`
+alp.define('inspector', _ => alp.fills.modal(`
   <div class="flex-1 overflow-hidden relative">
     <div name="jse" class="absolute inset-0"></div>
   </div>
