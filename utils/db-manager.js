@@ -3,44 +3,16 @@
 import { DEFAULT_DB, DEFAULT_STORE } from './path.js';
 import { MemoryDb } from './memory-db.js';
 
-/**
- * Registry of open database instances (Dexie or MemoryDb)
- * @type {Map<string, Dexie|MemoryDb>}
- */
 const databases = new Map();
-
-/**
- * Registry of stores per database
- * @type {Map<string, Set<string>>}
- */
 const storeRegistry = new Map();
-
-/**
- * Whether we're using persistent IndexedDB storage
- * When false, all databases use in-memory fallback
- * @type {boolean}
- */
 let persistentMode = true;
 
-/**
- * Create and register a new database with specified stores
- * @param {string} name - Database name
- * @param {string[]} storeNames - Array of store names to create
- * @returns {Promise<Dexie|MemoryDb>} The created database instance
- */
 const createDb = async (name, storeNames = [DEFAULT_STORE]) => {
-  if (databases.has(name)) {
-    throw new Error(`Database '${name}' already exists. Use getDb('${name}') to access it.`);
-  }
-
-  if (!storeNames.length) {
-    storeNames = [DEFAULT_STORE];
-  }
+  if (databases.has(name)) throw new Error(`Database '${name}' already exists. Use getDb('${name}') to access it.`);
+  if (!storeNames.length) storeNames = [DEFAULT_STORE];
 
   const storeSchema = {};
-  for (const store of storeNames) {
-    storeSchema[store] = 'name';
-  }
+  for (const store of storeNames) storeSchema[store] = 'name';
 
   let db;
   if (persistentMode) {
@@ -61,149 +33,74 @@ const createDb = async (name, storeNames = [DEFAULT_STORE]) => {
   return db;
 };
 
-/**
- * Add a store to an existing database
- * Requires closing and reopening with a new version (for Dexie)
- * @param {string} dbName - Database name
- * @param {string} storeName - New store name
- * @returns {Promise<Dexie|MemoryDb>} The updated database instance
- */
 const createStore = async (dbName, storeName) => {
   const db = databases.get(dbName);
-  if (!db) {
-    throw new Error(`Database '${dbName}' not found. Use alp.createDb('${dbName}', ['${storeName}']) to create it.`);
-  }
+  if (!db) throw new Error(`Database '${dbName}' not found. Use alp.createDb('${dbName}', ['${storeName}']) to create it.`);
 
   const stores = storeRegistry.get(dbName);
-  if (stores.has(storeName)) {
-    throw new Error(`Store '${storeName}' already exists in database '${dbName}'.`);
-  }
+  if (stores.has(storeName)) throw new Error(`Store '${storeName}' already exists in database '${dbName}'.`);
 
-  // Build new schema with all existing stores plus new one
   const storeSchema = {};
-  for (const store of stores) {
-    storeSchema[store] = 'name';
-  }
+  for (const store of stores) storeSchema[store] = 'name';
   storeSchema[storeName] = 'name';
 
   let newDb;
   if (db instanceof MemoryDb) {
-    // For MemoryDb, just add the new store directly
-    const currentVersion = db.verno;
-    const newVersion = currentVersion + 1;
-    db.version(newVersion).stores({ [storeName]: 'name' });
+    const v = db.verno + 1;
+    db.version(v).stores({ [storeName]: 'name' });
     newDb = db;
     stores.add(storeName);
-    console.log(`📦 Added store '${storeName}' to database '${dbName}' (v${newVersion}, memory)`);
+    console.log(`📦 Added store '${storeName}' to database '${dbName}' (v${v}, memory)`);
   } else {
-    // For Dexie, close and reopen with new version
     db.close();
-
-    const currentVersion = db.verno;
-    const newVersion = currentVersion + 1;
-
+    const v = db.verno + 1;
     newDb = new Dexie(dbName);
-    newDb.version(newVersion).stores(storeSchema);
+    newDb.version(v).stores(storeSchema);
     await newDb.open();
-
     databases.set(dbName, newDb);
     stores.add(storeName);
-    console.log(`📦 Added store '${storeName}' to database '${dbName}' (v${newVersion})`);
+    console.log(`📦 Added store '${storeName}' to database '${dbName}' (v${v})`);
   }
 
   return newDb;
 };
 
-/**
- * Register an existing database instance (used for the default AlpDB)
- * @param {string} name - Database name
- * @param {Dexie|MemoryDb} db - Existing database instance
- * @param {string[]} storeNames - Store names in this database
- */
 const registerDb = (name, db, storeNames = [DEFAULT_STORE]) => {
   databases.set(name, db);
   storeRegistry.set(name, new Set(storeNames));
 };
 
-/**
- * Get a database instance by name
- * @param {string} name - Database name
- * @returns {Dexie|MemoryDb} The database instance
- * @throws {Error} If database doesn't exist
- */
 const getDb = (name) => {
   const db = databases.get(name);
-  if (!db) {
-    throw new Error(`Database '${name}' not found. Use alp.createDb('${name}', ['storeName']) to create it.`);
-  }
+  if (!db) throw new Error(`Database '${name}' not found. Use alp.createDb('${name}', ['storeName']) to create it.`);
   return db;
 };
 
-/**
- * Get a store (table) from a database
- * @param {string} dbName - Database name
- * @param {string} storeName - Store name
- * @returns {Dexie.Table|MemoryTable} The store/table instance
- * @throws {Error} If database or store doesn't exist
- */
 const getStore = (dbName, storeName) => {
   const db = getDb(dbName);
   const stores = storeRegistry.get(dbName);
-
   if (!stores || !stores.has(storeName)) {
     throw new Error(`Store '${storeName}' not found in database '${dbName}'. Use alp.createStore('${dbName}', '${storeName}') to create it.`);
   }
-
   return db[storeName];
 };
 
-/**
- * Check if a database exists
- * @param {string} name - Database name
- * @returns {boolean}
- */
 const hasDb = (name) => databases.has(name);
 
-/**
- * Check if a store exists in a database
- * @param {string} dbName - Database name
- * @param {string} storeName - Store name
- * @returns {boolean}
- */
 const hasStore = (dbName, storeName) => {
   const stores = storeRegistry.get(dbName);
   return stores ? stores.has(storeName) : false;
 };
 
-/**
- * Check if a database and store combination exists
- * @param {string} dbName - Database name
- * @param {string} storeName - Store name
- * @returns {boolean}
- */
 const has = (dbName, storeName) => hasDb(dbName) && hasStore(dbName, storeName);
 
-/**
- * List all registered database names
- * @returns {string[]}
- */
 const listDbs = () => Array.from(databases.keys());
 
-/**
- * List all stores in a database
- * @param {string} dbName - Database name
- * @returns {string[]}
- */
 const listStores = (dbName) => {
   const stores = storeRegistry.get(dbName);
   return stores ? Array.from(stores) : [];
 };
 
-/**
- * Close and remove a database from the registry
- * Does NOT delete the IndexedDB - just closes connection
- * @param {string} name - Database name
- */
 const closeDb = (name) => {
   const db = databases.get(name);
   if (db) {
@@ -214,36 +111,15 @@ const closeDb = (name) => {
   }
 };
 
-/**
- * Delete a database entirely (removes from IndexedDB or clears memory)
- * @param {string} name - Database name
- * @returns {Promise<void>}
- */
 const deleteDb = async (name) => {
   const db = databases.get(name);
   const isMemory = db instanceof MemoryDb;
   closeDb(name);
-
-  if (!isMemory) {
-    await Dexie.delete(name);
-  }
-
-  const modeLabel = isMemory ? ' (memory)' : '';
-  console.log(`🗑️ Deleted database '${name}'${modeLabel}`);
+  if (!isMemory) await Dexie.delete(name);
+  console.log(`🗑️ Deleted database '${name}'${isMemory ? ' (memory)' : ''}`);
 };
 
-/**
- * Set the persistence mode for the database manager
- * @param {boolean} persistent - Whether to use IndexedDB (true) or memory fallback (false)
- */
-const setPersistent = (persistent) => {
-  persistentMode = persistent;
-};
-
-/**
- * Get the current persistence mode
- * @returns {boolean} True if using IndexedDB, false if using memory fallback
- */
+const setPersistent = (persistent) => { persistentMode = persistent; };
 const isPersistent = () => persistentMode;
 
 export const dbManager = {
